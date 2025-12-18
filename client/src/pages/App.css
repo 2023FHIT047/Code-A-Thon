@@ -1,0 +1,218 @@
+.mainContainer {
+  font-family: Arial, sans-serif;
+}
+
+.header {
+  background-color: navy;
+  color: white;
+  justify-content: center;
+  height: 60px;
+  width:1535px;
+  display: flex;
+  align-items: center;
+  border: 2px solid black;
+  font-size: 20px;
+  position:absolute;
+ 
+  top:2px;
+  left:0px
+}
+
+.sidebar {
+  position: absolute;
+  top: 67px;
+  left: 0;
+  border: 2px solid black;
+  width: 200px;
+  height: 634px;
+  background-color: #f2f2f2;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebarButton {
+  height: 50px;
+  width: 100%;
+  font-size: 18px;
+  font-weight: bold;
+  background-color: navy;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.contentArea {
+  margin-left: 220px;
+  padding: 20px;
+}
+
+.box {
+  border: 2px solid black;
+  padding: 20px;
+  margin-bottom: 350px;
+  margin-right: 750px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.table th,
+.table td {
+  border: 1px solid black;
+  padding: 10px;
+  text-align: center;
+}
+
+.label {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.select {
+  margin-right: 20px;
+  padding: 6px;
+  font-weight: bold;
+}
+
+.submitBtn {
+  margin-top: 20px;
+  width: 200px;
+  font-weight: bold;
+  background-color: navy;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 18px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.dropdown {
+  font-size: 16px;
+  font-weight: bold;
+  height: 40px;
+  border-radius: 5px;
+  border: 1px solid black;
+  cursor: pointer;
+  padding-left: 10px;
+}
+
+.boxStyle {
+  border: 2px solid black;
+  position: absolute;
+  top: 100px;
+  left: 240px;
+  height: auto;
+  width: 1200px;
+  padding: 20px;
+  background-color: #ffffff;
+  border-radius: 10px;
+}
+
+.formBox {
+  border: 2px solid black;
+  height: 100px;
+  width: 90%;
+  background-color: #eaeaea;
+  padding: 20px;
+  position: relative;
+  border-radius: 10px;
+}
+
+.searchButton {
+  width: 150px;
+  position: absolute;
+  top: 40px;
+  left: 330px;
+  font-weight: bold;
+  background-color: navy;
+  color: white;
+  border: 2px solid black;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.table th,
+.table td {
+  border: 2px solid black;
+  padding: 10px;
+  text-align: center;
+}
+
+.submitButton {
+  margin-top: 20px;
+  margin-left: 1000px;
+  padding: 10px 20px;
+  font-weight: bold;
+  background-color: navy;
+  color: white;
+  border: 2px solid black;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.scrollableTableWrapper {
+  max-height: 350px;
+  overflow-y: auto;
+  border: 0px solid black;
+  margin-top: 0px;
+}
+.text{
+   font-size: 17px;
+   font-weight: bold;
+
+}
+
+
+.form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px 25px;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 10px;
+  
+  margin-bottom: 30px;
+}
+
+.form label {
+  grid-column: span 2;
+  font-weight: bold;
+  color: #34495e;
+  margin-bottom: 5px;
+  font-size: 17;
+}
+
+.form input,
+.form select {
+  grid-column: span 2;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #bdc3c7;
+  outline: none;
+  font-size: 17px;
+  transition: 0.3s;
+}
+
+.form input:focus,
+.form select:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.4);
+}
+
+.form select[multiple] {
+  height: 130px;
+  grid-column: span 2;
+}
+
+
