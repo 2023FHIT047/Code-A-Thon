@@ -1,24 +1,21 @@
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 
-export default function DashboardMap({ incidents }) {
+export default function DashboardMap({ incidents, onIncidentClick }) {
   return (
-    <MapContainer
-      center={[19.2183, 72.9781]}
-      zoom={12}
-      style={{ height: "450px" }}
-    >
+    <MapContainer center={[19.0760, 72.8777]} zoom={12} style={{ height: "400px", width: "100%" }}>
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-
-      {incidents.map((incident) => (
+      {incidents.map(inc => (
         <Marker
-          key={incident.id}
-          position={[incident.lat, incident.lng]}
+          key={inc.id}
+          position={[inc.lat, inc.lng]}
+          eventHandlers={{
+            click: () => onIncidentClick(inc)
+          }}
         >
           <Popup>
-            <b>{incident.type}</b> <br />
-            Severity: {incident.severity} <br />
-            Status: {incident.status}
+            <b>{inc.title}</b><br/>
+            Status: {inc.status}<br/>
+            Severity: {inc.severity}
           </Popup>
         </Marker>
       ))}

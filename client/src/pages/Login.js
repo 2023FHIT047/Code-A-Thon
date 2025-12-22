@@ -1,26 +1,60 @@
-// src/Login.js
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { auth } from "./firebase";
+import { useState } from "react";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import "./styles.css";
 
 export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const login = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-    navigate("/dashboard");
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    const auth = getAuth();
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Save user in localStorage
+      localStorage.setItem("user", JSON.stringify({ uid: user.uid, email: user.email }));
+
+      // Navigate to volunteer dashboard
+      navigate("/volunteer-dashboard");
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
-    <div className="container">
-      <div className="card" style={{ textAlign: "center" }}>
-        <h1>Crisis Response Platform</h1>
-        <p>Login to report incidents and help your community</p>
-        <button onClick={login}>Login with Google</button>
-      </div>
+    <div style={styles.container}>
+      <h2>Login</h2>
+      <form onSubmit={handleLogin} style={styles.form}>
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          style={styles.input}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          style={styles.input}
+        />
+        <button type="submit" style={styles.button}>Login</button>
+        {error && <p style={{ color: "red" }}>{error}</p>}
+      </form>
     </div>
   );
 }
 
+const styles = {
+  container: { display: "flex", flexDirection: "column", alignItems: "center", marginTop: 50, fontFamily: "Arial" },
+  form: { display: "flex", flexDirection: "column", width: 300, gap: 10 },
+  input: { padding: 8, fontSize: 16, borderRadius: 4, border: "1px solid #ccc" },
+  button: { padding: 10, fontSize: 16, borderRadius: 4, border: "none", background: "#28a745", color: "#fff", cursor: "pointer" },
+};
