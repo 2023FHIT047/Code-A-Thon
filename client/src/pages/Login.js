@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "./firebase"; // your firebase config
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -15,11 +17,28 @@ export default function Login() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Save user in localStorage
-      localStorage.setItem("user", JSON.stringify({ uid: user.uid, email: user.email }));
+      // Fetch user role from Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+        setError("User data not found!");
+        return;
+      }
 
-      // Navigate to volunteer dashboard
-      navigate("/volunteer-dashboard");
+      const userData = userDoc.data();
+      const role = userData.role || "community"; // default to community
+
+      // Save user info in localStorage
+      localStorage.setItem("user", JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        role: role
+      }));
+
+      // Navigate based on role
+      if (role === "admin") navigate("/AdminDashboard");
+      else if (role === "volunteer") navigate("/VolunteerDashboard");
+      else navigate("/CommunityDashboard");
+
     } catch (err) {
       setError(err.message);
     }

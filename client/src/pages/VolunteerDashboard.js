@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  doc,
+  updateDoc,
+  query,
+  where,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { db } from "./firebase";
 import DashboardMap from "./DashboardMap";
@@ -7,9 +14,10 @@ import DashboardMap from "./DashboardMap";
 export default function VolunteerDashboard() {
   const [user, setUser] = useState(null);
   const [incidents, setIncidents] = useState([]);
-  const [activeSection, setActiveSection] = useState("myIncidents"); // sidebar control
+  const [resources, setResources] = useState([]);
+  const [activeSection, setActiveSection] = useState("myIncidents");
 
-  /* Get logged-in user */
+  /* 🔐 Get logged-in volunteer */
   useEffect(() => {
     const auth = getAuth();
     const currentUser = auth.currentUser;
@@ -17,88 +25,161 @@ export default function VolunteerDashboard() {
     if (currentUser) {
       setUser({ uid: currentUser.uid, email: currentUser.email });
     } else {
-      // Check localStorage fallback
-      const storedUser = JSON.parse(localStorage.getItem("user"));
-      if (storedUser) setUser(storedUser);
+      const stored = JSON.parse(localStorage.getItem("user"));
+      if (stored) setUser(stored);
     }
   }, []);
 
-  /* Fetch incidents in real-time */
+  /* 🔥 Fetch incidents */
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "incidents"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setIncidents(data);
+    const unsub = onSnapshot(collection(db, "incidents"), (snap) => {
+      setIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-
     return () => unsub();
   }, []);
 
-  /* Update incident status */
+  /* 🚑 Fetch resources assigned to this volunteer */
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, "resources"),
+      where("assignedVolunteerId", "==", user.uid)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      setResources(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => unsub();
+  }, [user]);
+
+  /* 🔁 Update incident status */
   const updateIncidentStatus = async (id, status) => {
     await updateDoc(doc(db, "incidents", id), { status });
   };
 
-  if (!user) return <p>Loading user info...</p>;
+  /* 🔁 Update resource status */
+  const updateResourceStatus = async (id, status) => {
+    await updateDoc(doc(db, "resources", id), { status });
+  };
 
-  /* Render sections */
-  const renderSection = () => {
-    let filteredIncidents = activeSection === "myIncidents"
-      ? incidents.filter(inc => inc.assignedTo === user.uid)
-      : incidents;
+  if (!user) return <p>Loading...</p>;
 
-    return (
-      <div style={styles.section}>
-        <h3>{activeSection === "myIncidents" ? "📝 My Assigned Incidents" : "🌍 All Incidents"}</h3>
-        <div style={{ marginBottom: 20 }}>
-          <DashboardMap incidents={filteredIncidents} />
-        </div>
+  const myIncidents = incidents.filter(i => i.assignedTo === user.uid);
 
-        {filteredIncidents.map(inc => (
-          <div key={inc.id} style={styles.card}>
-            <h4>{inc.title}</h4>
-            <p><b>Status:</b> {inc.status}</p>
-            <p><b>Severity:</b> {inc.severity}</p>
+  /* 📦 Render Section */
+  const renderSection = () => (
+    <div style={styles.section}>
+      <h3>📝 My Assigned Incidents</h3>
 
-            {inc.assignedTo === user.uid && (
-              <select
-                value={inc.status}
-                onChange={(e) => updateIncidentStatus(inc.id, e.target.value)}
-              >
-                <option>Assigned</option>
-                <option>Resolved</option>
-              </select>
+      <DashboardMap incidents={myIncidents} resources={resources} />
+
+      {myIncidents.map(inc => (
+        <div key={inc.id} style={styles.card}>
+          <h4>{inc.title}</h4>
+          <p><b>Status:</b> {inc.status}</p>
+          <p><b>Severity:</b> {inc.severity}</p>
+
+          <select
+            value={inc.status}
+            onChange={(e) => updateIncidentStatus(inc.id, e.target.value)}
+          >
+            <option>Assigned</option>
+            <option>In Progress</option>
+            <option>Resolved</option>
+          </select>
+
+          {/* 🚑 Assigned Resources */}
+          <div style={styles.resourceBox}>
+            <h5>🚑 Assigned Resources</h5>
+
+            {resources
+              .filter(r => r.assignedIncidentId === inc.id)
+              .map(r => (
+                <div key={r.id} style={styles.resourceCard}>
+                  <p><b>{r.type}</b></p>
+                  <p>Status: {r.status}</p>
+
+                  <select
+                    value={r.status}
+                    onChange={(e) =>
+                      updateResourceStatus(r.id, e.target.value)
+                    }
+                  >
+                    <option>Dispatched</option>
+                    <option>Reached</option>
+                    <option>In Use</option>
+                    <option>Released</option>
+                  </select>
+                </div>
+              ))}
+
+            {resources.filter(r => r.assignedIncidentId === inc.id).length === 0 && (
+              <p style={{ fontSize: 13, color: "#777" }}>No resources assigned</p>
             )}
           </div>
-        ))}
-      </div>
-    );
-  };
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div style={styles.container}>
       {/* Sidebar */}
       <aside style={styles.sidebar}>
-        <h2>👷 Volunteer Panel</h2>
-        <nav>
-          <button style={styles.navBtn} onClick={() => setActiveSection("myIncidents")}>My Incidents</button>
-          <button style={styles.navBtn} onClick={() => setActiveSection("allIncidents")}>All Incidents</button>
-        </nav>
+        <h2>👷 Volunteer</h2>
+        <button style={styles.navBtn} onClick={() => setActiveSection("myIncidents")}>
+          My Incidents
+        </button>
       </aside>
 
-      {/* Main content */}
-      <main style={styles.mainContent}>
-        {renderSection()}
-      </main>
+      {/* Main */}
+      <main style={styles.main}>{renderSection()}</main>
     </div>
   );
 }
 
-/* Styles */
+/* 🎨 Styles */
 const styles = {
-  container: { display: "flex", minHeight: "100vh", fontFamily: "Arial", background: "#f4f6f8" },
-  sidebar: { width: "220px", background: "#34495e", color: "#fff", padding: "20px", display: "flex", flexDirection: "column", gap: "10px" },
-  navBtn: { padding: "10px 15px", margin: "5px 0", background: "#2c3e50", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer", textAlign: "left" },
-  mainContent: { flex: 1, padding: "20px", overflowY: "auto" },
-  section: { background: "#fff", padding: "15px", borderRadius: "8px", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" },
-  card: { background: "#fafafa", padding: "12px", marginBottom: "12px", borderRadius: "6px", display: "grid", gap: "8px" },
+  container: { display: "flex", minHeight: "100vh", background: "#f4f6f8" },
+  sidebar: {
+    width: 220,
+    background: "#2c3e50",
+    color: "#fff",
+    padding: 20,
+  },
+  navBtn: {
+    width: "100%",
+    padding: 10,
+    background: "#34495e",
+    border: "none",
+    color: "#fff",
+    borderRadius: 6,
+    cursor: "pointer",
+  },
+  main: { flex: 1, padding: 20 },
+  section: {
+    background: "#fff",
+    padding: 20,
+    borderRadius: 8,
+  },
+  card: {
+    background: "#fafafa",
+    padding: 15,
+    marginTop: 15,
+    borderRadius: 6,
+  },
+  resourceBox: {
+    marginTop: 10,
+    padding: 10,
+    background: "#eef2f5",
+    borderRadius: 6,
+  },
+  resourceCard: {
+    background: "#fff",
+    padding: 8,
+    marginBottom: 8,
+    borderRadius: 5,
+  },
 };
