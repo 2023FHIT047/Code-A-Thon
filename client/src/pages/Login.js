@@ -37,7 +37,8 @@ export default function Login() {
       // Navigate based on role
       if (role === "admin") navigate("/AdminDashboard");
       else if (role === "volunteer") navigate("/VolunteerDashboard");
-      else navigate("/CommunityDashboard");
+      else if (role === "community") navigate("/CommunityDashboard");
+      else navigate("/ResourceManagerDashboard");
 
     } catch (err) {
       setError(err.message);
