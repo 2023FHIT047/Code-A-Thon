@@ -16,6 +16,7 @@ export default function Signup() {
   const [selectedCenter, setSelectedCenter] = useState("");
   const [error, setError] = useState("");
   const [centers, setCenters] = useState([]);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,6 +39,8 @@ export default function Signup() {
       if ((role === "volunteer" || role === "resourceManager") && !selectedCenter)
         return setError("Please select a city / center.");
 
+      setLoading(true);
+
       const res = await createUserWithEmailAndPassword(auth, email, password);
       const autoApprove = role === "community" || role === "coordinator";
 
@@ -55,13 +58,15 @@ export default function Signup() {
       navigate("/login");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        <h2 style={styles.heading}>Create Account</h2>
+        <h1 style={styles.heading}>Create Account</h1>
         <p style={styles.subText}>Crisis Response Platform</p>
 
         {error && <div style={styles.errorBox}>{error}</div>}
@@ -113,8 +118,8 @@ export default function Signup() {
           </div>
         )}
 
-        <button onClick={signup} style={styles.button}>
-          Create Account
+        <button onClick={signup} style={styles.button} disabled={loading}>
+          {loading ? "Creating Account..." : "Create Account"}
         </button>
 
         <p style={styles.footerText}>
@@ -151,94 +156,91 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    background: "linear-gradient(135deg, #1e3c72, #2a5298)",
-    fontFamily: "'Inter', Segoe UI, sans-serif",
-    padding: "20px"
+    background: "linear-gradient(135deg, #667eea, #764ba2)",
+    fontFamily: "'Inter', sans-serif",
+    padding: "20px",
   },
   card: {
-    width: 450,
+    width: "100%",
+    maxWidth: "450px",
     background: "rgba(255,255,255,0.95)",
-    backdropFilter: "blur(15px)",
-    padding: 40,
-    borderRadius: 20,
+    backdropFilter: "blur(12px)",
+    padding: "40px",
+    borderRadius: "20px",
     boxShadow: "0 25px 60px rgba(0,0,0,0.25)",
     display: "flex",
     flexDirection: "column",
-    gap: 18,
+    gap: "18px",
     transition: "all 0.3s ease-in-out",
   },
   heading: {
     textAlign: "center",
-    fontSize: 28,
+    fontSize: "28px",
     fontWeight: 700,
     color: "#111827",
   },
   subText: {
     textAlign: "center",
-    fontSize: 15,
+    fontSize: "15px",
     color: "#6b7280",
-    marginBottom: 10,
+    marginBottom: "10px",
   },
   field: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: "6px",
   },
   label: {
-    fontSize: 14,
+    fontSize: "14px",
     fontWeight: 600,
     color: "#374151",
   },
   input: {
     padding: "12px 15px",
-    borderRadius: 12,
+    borderRadius: "12px",
     border: "1px solid #d1d5db",
     outline: "none",
-    fontSize: 14,
-    transition: "0.3s",
+    fontSize: "14px",
     fontWeight: 500,
     color: "#111827",
-  },
-  inputFocus: {
-    borderColor: "#2563eb",
-    boxShadow: "0 0 8px rgba(37,99,235,0.3)",
+    transition: "0.3s",
   },
   select: {
     padding: "12px 15px",
-    borderRadius: 12,
+    borderRadius: "12px",
     border: "1px solid #d1d5db",
-    fontSize: 14,
+    fontSize: "14px",
     fontWeight: 500,
     color: "#111827",
     outline: "none",
     transition: "0.3s",
   },
   highlightBox: {
-    background: "rgba(243, 244, 246,0.7)",
-    padding: 14,
-    borderRadius: 12,
+    background: "rgba(243,244,246,0.7)",
+    padding: "14px",
+    borderRadius: "12px",
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: "6px",
     transition: "0.3s",
   },
   errorBox: {
     background: "#fee2e2",
     color: "#991b1b",
-    padding: 12,
-    borderRadius: 10,
-    fontSize: 14,
+    padding: "12px",
+    borderRadius: "10px",
+    fontSize: "14px",
     textAlign: "center",
     fontWeight: 500,
   },
   button: {
-    marginTop: 12,
+    marginTop: "12px",
     padding: "14px 0",
-    borderRadius: 14,
+    borderRadius: "14px",
     border: "none",
     background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
     color: "#fff",
-    fontSize: 16,
+    fontSize: "16px",
     fontWeight: 600,
     cursor: "pointer",
     boxShadow: "0 12px 28px rgba(37,99,235,0.35)",
@@ -246,8 +248,8 @@ const styles = {
   },
   footerText: {
     textAlign: "center",
-    fontSize: 14,
-    marginTop: 10,
+    fontSize: "14px",
+    marginTop: "10px",
     color: "#6b7280",
   },
   link: {
