@@ -2,7 +2,7 @@ import { useState } from "react";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "./firebase"; // your firebase config
+import { db } from "./firebase";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -12,69 +12,162 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError("");
+
     const auth = getAuth();
+
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Firebase Authentication
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
       const user = userCredential.user;
 
-      // Fetch user role from Firestore
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (!userDoc.exists()) {
-        setError("User data not found!");
+      // Fetch user document from Firestore
+      const userSnap = await getDoc(doc(db, "users", user.uid));
+
+      if (!userSnap.exists()) {
+        setError("User profile not found.");
         return;
       }
 
-      const userData = userDoc.data();
-      const role = userData.role || "community"; // default to community
+      const userData = userSnap.data();
+      const role = userData.role;
 
-      // Save user info in localStorage
-      localStorage.setItem("user", JSON.stringify({
-        uid: user.uid,
-        email: user.email,
-        role: role
-      }));
+      // Save user session
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          role: role
+        })
+      );
 
-      // Navigate based on role
-      if (role === "admin") navigate("/AdminDashboard");
+      // Role-based navigation
+      if (role === "coordinator") navigate("/CoordinatorDashboard");
       else if (role === "volunteer") navigate("/VolunteerDashboard");
-      else if (role === "community") navigate("/CommunityDashboard");
-      else navigate("/ResourceManagerDashboard");
+      else if (role === "resourceManager") navigate("/ResourceManagerDashboard");
+      else navigate("/CommunityDashboard");
 
     } catch (err) {
-      setError(err.message);
+      setError("Invalid email or password");
     }
   };
 
   return (
-    <div style={styles.container}>
-      <h2>Login</h2>
-      <form onSubmit={handleLogin} style={styles.form}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={styles.input}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={styles.input}
-        />
-        <button type="submit" style={styles.button}>Login</button>
-        {error && <p style={{ color: "red" }}>{error}</p>}
-      </form>
+    <div style={styles.page}>
+      <div style={styles.card}>
+        <h2 style={styles.heading}>Welcome Back</h2>
+        <p style={styles.subText}>Login to your account</p>
+
+        {error && <p style={styles.error}>{error}</p>}
+
+        <form onSubmit={handleLogin} style={styles.form}>
+          <div style={styles.field}>
+            <label>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div style={styles.field}>
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <button type="submit" style={styles.button}>
+            Login
+          </button>
+        </form>
+
+        <p style={styles.footerText}>
+          Don’t have an account?{" "}
+          <span
+            style={styles.link}
+            onClick={() => navigate("/signup")}
+          >
+            Sign Up
+          </span>
+        </p>
+      </div>
     </div>
   );
 }
 
+/* 🎨 STYLES */
 const styles = {
-  container: { display: "flex", flexDirection: "column", alignItems: "center", marginTop: 50, fontFamily: "Arial" },
-  form: { display: "flex", flexDirection: "column", width: 300, gap: 10 },
-  input: { padding: 8, fontSize: 16, borderRadius: 4, border: "1px solid #ccc" },
-  button: { padding: 10, fontSize: 16, borderRadius: 4, border: "none", background: "#28a745", color: "#fff", cursor: "pointer" },
+  page: {
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    background: "linear-gradient(135deg, #667eea, #764ba2)",
+    fontFamily: "Segoe UI"
+  },
+  card: {
+    width: 360,
+    background: "#fff",
+    padding: 30,
+    borderRadius: 12,
+    boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 14
+  },
+  heading: {
+    textAlign: "center",
+    marginBottom: 4
+  },
+  subText: {
+    textAlign: "center",
+    color: "#666",
+    fontSize: 14,
+    marginBottom: 10
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12
+  },
+  field: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4
+  },
+  error: {
+    color: "#e74c3c",
+    textAlign: "center",
+    fontSize: 14
+  },
+  button: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 6,
+    border: "none",
+    background: "#667eea",
+    color: "#fff",
+    fontSize: 16,
+    cursor: "pointer"
+  },
+  footerText: {
+    textAlign: "center",
+    fontSize: 14
+  },
+  link: {
+    color: "#667eea",
+    fontWeight: "bold",
+    cursor: "pointer"
+  }
 };

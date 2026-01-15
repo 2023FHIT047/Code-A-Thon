@@ -1,7 +1,37 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "./firebase";
+
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+// 🔧 Fix Leaflet marker issue
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
+  iconUrl: require("leaflet/dist/images/marker-icon.png"),
+  shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+});
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [showMap, setShowMap] = useState(false);
+  const [incidents, setIncidents] = useState([]);
+
+  // 🔥 Fetch incidents from Firestore
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "incidents"), (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setIncidents(data);
+    });
+
+    return () => unsub();
+  }, []);
 
   return (
     <div style={{ fontFamily: "Arial, sans-serif" }}>
@@ -9,11 +39,9 @@ export default function LandingPage() {
       {/* NAVBAR */}
       <nav style={styles.nav}>
         <h2>CrisisConnect</h2>
-        <div>
-          <button style={styles.navBtn} onClick={() => navigate("/login")}>
-            Login
-          </button>
-        </div>
+        <button style={styles.navBtn} onClick={() => navigate("/login")}>
+          Login
+        </button>
       </nav>
 
       {/* HERO */}
@@ -25,10 +53,9 @@ export default function LandingPage() {
         </p>
 
         <div>
-          {/* ✅ VIEW MAP BUTTON */}
           <button
             style={styles.primaryBtn}
-            onClick={() => navigate("/map")}
+            onClick={() => setShowMap(true)}
           >
             View Live Incident Map
           </button>
@@ -42,58 +69,53 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* 🗺️ LIVE MAP SECTION */}
+      {showMap && (
+        <section style={styles.mapSection}>
+          <h2>🌍 Live Reported Incidents</h2>
+
+          <MapContainer
+            center={[20, 78]}
+            zoom={5}
+            style={{ height: "450px", width: "100%", borderRadius: "10px" }}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+            {incidents.map((inc) =>
+              inc.lat && inc.lng ? (
+                <Marker key={inc.id} position={[inc.lat, inc.lng]}>
+                  <Popup>
+                    <b>{inc.title}</b><br />
+                    {inc.description}<br />
+                    <b>Severity:</b> {inc.severity}<br />
+                    <b>Status:</b> {inc.status}
+                  </Popup>
+                </Marker>
+              ) : null
+            )}
+          </MapContainer>
+
+          {incidents.length === 0 && (
+            <p style={{ marginTop: 10 }}>No incidents reported yet.</p>
+          )}
+        </section>
+      )}
+
       {/* FEATURES */}
       <section style={styles.section}>
         <h2>What We Offer</h2>
-
         <div style={styles.features}>
-          <Feature
-            title="Community Incident Visibility"
-            desc="Anyone can view live incidents on the public map."
-          />
-          <Feature
-            title="Live Resource Tracking"
-            desc="Track volunteers, ambulances, shelters, and supplies."
-          />
-          <Feature
-            title="Role-Based Access"
-            desc="Different dashboards for users, volunteers, and agencies."
-          />
-          <Feature
-            title="Map-Based Dashboard"
-            desc="All incidents visualized geographically in real time."
-          />
+          <Feature title="Community Incident Visibility" desc="Anyone can view live incidents on the public map." />
+          <Feature title="Live Resource Tracking" desc="Track volunteers, ambulances, shelters, and supplies." />
+          <Feature title="Role-Based Access" desc="Different dashboards for users, volunteers, and agencies." />
+          <Feature title="Map-Based Dashboard" desc="All incidents visualized geographically in real time." />
         </div>
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section style={styles.sectionAlt}>
-        <h2>How It Works</h2>
-        <ol style={{ maxWidth: "700px", margin: "auto", textAlign: "left" }}>
-          <li>Public users view incidents on the live map</li>
-          <li>Community users log in to report incidents</li>
-          <li>Admins validate and assign volunteers/resources</li>
-          <li>Status updates are reflected on the map</li>
-        </ol>
-      </section>
-
-      {/* CTA */}
-      <section style={styles.cta}>
-        <h2>Join the Response Network</h2>
-        <p>Sign up to report incidents or volunteer during emergencies.</p>
-        <button
-          style={styles.primaryBtn}
-          onClick={() => navigate("/signup")}
-        >
-          Get Started
-        </button>
       </section>
 
       {/* FOOTER */}
       <footer style={styles.footer}>
         <p>© 2025 CrisisConnect | Hackathon Prototype</p>
       </footer>
-
     </div>
   );
 }
@@ -107,6 +129,7 @@ function Feature({ title, desc }) {
   );
 }
 
+/* 🎨 Styles */
 const styles = {
   nav: {
     display: "flex",
@@ -120,21 +143,21 @@ const styles = {
     background: "white",
     color: "#0d47a1",
     border: "none",
-    cursor: "pointer",
     borderRadius: "4px",
+    cursor: "pointer",
   },
   hero: {
     padding: "80px 20px",
     textAlign: "center",
     background: "#e3f2fd",
   },
+  mapSection: {
+    padding: "40px 20px",
+    textAlign: "center",
+    background: "#f4f6f8",
+  },
   section: {
     padding: "60px 20px",
-    textAlign: "center",
-  },
-  sectionAlt: {
-    padding: "60px 20px",
-    background: "#f5f5f5",
     textAlign: "center",
   },
   features: {
@@ -155,8 +178,8 @@ const styles = {
     background: "#d32f2f",
     color: "white",
     border: "none",
-    cursor: "pointer",
     borderRadius: "5px",
+    cursor: "pointer",
   },
   secondaryBtn: {
     padding: "12px 20px",
@@ -164,14 +187,8 @@ const styles = {
     background: "#1976d2",
     color: "white",
     border: "none",
-    cursor: "pointer",
     borderRadius: "5px",
-  },
-  cta: {
-    padding: "60px 20px",
-    textAlign: "center",
-    background: "#0d47a1",
-    color: "white",
+    cursor: "pointer",
   },
   footer: {
     padding: "15px",
