@@ -6,8 +6,9 @@ import { db } from "./firebase";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { FaMapMarkedAlt, FaUsers, FaBoxOpen, FaCogs } from "react-icons/fa";
 
-/* 🔧 FIX LEAFLET ICON ISSUE */
+/* Fix Leaflet Icon Issue */
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
@@ -20,7 +21,7 @@ export default function LandingPage() {
   const [showMap, setShowMap] = useState(false);
   const [incidents, setIncidents] = useState([]);
 
-  /* 🔥 FETCH INCIDENTS */
+  /* Fetch incidents from Firestore */
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "incidents"), snap => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -30,22 +31,15 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div style={{ fontFamily: "Arial, sans-serif" }}>
-
-      {/* ================= FULL SCREEN MAP ================= */}
+    <div style={{ fontFamily: "'Poppins', sans-serif" }}>
+      {/* FULL SCREEN MAP */}
       {showMap && (
         <div style={styles.mapOverlay}>
           <button style={styles.closeBtn} onClick={() => setShowMap(false)}>
             ✖ Close Map
           </button>
-
-          <MapContainer
-            center={[20, 78]}
-            zoom={5}
-            style={{ height: "100vh", width: "100vw" }}
-          >
+          <MapContainer center={[20, 78]} zoom={5} style={{ height: "100vh", width: "100vw" }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-
             {incidents.map(inc => (
               <Marker key={inc.id} position={[inc.lat, inc.lng]}>
                 <Popup>
@@ -59,56 +53,51 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* ================= NORMAL LANDING PAGE ================= */}
+      {/* NORMAL LANDING PAGE */}
       {!showMap && (
         <>
           {/* NAVBAR */}
           <nav style={styles.nav}>
-            <h2>CrisisConnect</h2>
-            <button style={styles.navBtn} onClick={() => navigate("/login")}>
-              Login
-            </button>
+            <h1 style={{ fontFamily: "'Bebas Neue', cursive", fontSize: "2.2rem" }}>CrisisConnect</h1>
+            <div>
+              <button style={styles.navBtn} onClick={() => navigate("/login")}>Login</button>
+              <button style={styles.navBtnPrimary} onClick={() => navigate("/signup")}>Signup</button>
+            </div>
           </nav>
 
-          {/* HERO */}
+          {/* HERO SECTION */}
           <section style={styles.hero}>
-            <h1>Integrated Community Crisis Response Platform</h1>
-            <p>
-              View ongoing incidents, track resources, and coordinate emergency
-              response in real time.
-            </p>
-
-            <div>
-              <button
-                style={styles.primaryBtn}
-                onClick={() => setShowMap(true)}
-              >
-                View Live Incident Map
-              </button>
-
-              <button
-                style={styles.secondaryBtn}
-                onClick={() => navigate("/signup")}
-              >
-                Volunteer / Agency Signup
-              </button>
+            <div style={{ maxWidth: "700px", margin: "0 auto", textAlign: "center" }}>
+              <h1 style={styles.heroTitle}>Stay Safe. Respond Fast.</h1>
+              <p style={styles.heroSubtitle}>
+                Integrated community crisis response platform. View live incidents, track resources, and coordinate volunteers in real-time.
+              </p>
+              <div style={{ marginTop: "30px" }}>
+                <button style={styles.heroBtnPrimary} onClick={() => setShowMap(true)}>View Live Map</button>
+                <button style={styles.heroBtnSecondary} onClick={() => navigate("/signup")}>Join as Volunteer</button>
+              </div>
             </div>
           </section>
 
           {/* FEATURES */}
-          <section style={styles.section}>
-            <h2>What We Offer</h2>
-            <div style={styles.features}>
-              <Feature title="Live Incident Map" desc="Public real-time incident visibility" />
-              <Feature title="Volunteer Coordination" desc="Assign helpers efficiently" />
-              <Feature title="Resource Tracking" desc="Ambulances, shelters, supplies" />
-              <Feature title="Admin Control" desc="Centralized decision making" />
+          <section style={styles.featuresSection}>
+            <h2 style={{ fontSize: "2rem", marginBottom: "40px", color: "#0d47a1" }}>Our Features</h2>
+            <div style={styles.featuresGrid}>
+              <Feature icon={<FaMapMarkedAlt />} title="Live Incident Map" desc="Real-time visibility of all reported incidents." />
+              <Feature icon={<FaUsers />} title="Volunteer Coordination" desc="Efficiently assign and manage volunteers." />
+              <Feature icon={<FaBoxOpen />} title="Resource Tracking" desc="Monitor ambulances, shelters, and medical supplies." />
+              <Feature icon={<FaCogs />} title="Admin Control" desc="Centralized dashboard for decision-making." />
             </div>
           </section>
 
           {/* FOOTER */}
           <footer style={styles.footer}>
-            © 2025 CrisisConnect | Hackathon Prototype
+            <p>© 2025 CrisisConnect | Hackathon Prototype</p>
+            <div style={{ display: "flex", justifyContent: "center", gap: "15px", marginTop: "10px" }}>
+              <a href="#" style={styles.social}>Facebook</a>
+              <a href="#" style={styles.social}>Twitter</a>
+              <a href="#" style={styles.social}>LinkedIn</a>
+            </div>
           </footer>
         </>
       )}
@@ -116,79 +105,118 @@ export default function LandingPage() {
   );
 }
 
-/* ================= FEATURE CARD ================= */
-function Feature({ title, desc }) {
+/* FEATURE CARD */
+function Feature({ icon, title, desc }) {
   return (
-    <div style={styles.card}>
-      <h3>{title}</h3>
-      <p>{desc}</p>
+    <div style={styles.featureCard}>
+      <div style={{ fontSize: "2rem", color: "#1976d2", marginBottom: "15px" }}>{icon}</div>
+      <h3 style={{ marginBottom: "8px" }}>{title}</h3>
+      <p style={{ color: "#555" }}>{desc}</p>
     </div>
   );
 }
 
-/* ================= STYLES ================= */
+/* STYLES */
 const styles = {
   nav: {
     display: "flex",
     justifyContent: "space-between",
-    padding: "15px 40px",
+    padding: "20px 50px",
+    position: "sticky",
+    top: 0,
+    zIndex: 1000,
+    background: "white",
+    boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+    alignItems: "center",
+  },
+  navBtn: {
+    padding: "10px 20px",
+    marginRight: "10px",
+    borderRadius: "25px",
+    border: "1px solid #1976d2",
+    background: "white",
+    color: "#1976d2",
+    cursor: "pointer",
+    fontWeight: "600",
+    transition: "0.3s",
+  },
+  navBtnPrimary: {
+    padding: "10px 20px",
+    borderRadius: "25px",
+    border: "none",
+    background: "#1976d2",
+    color: "white",
+    cursor: "pointer",
+    fontWeight: "600",
+    transition: "0.3s",
+  },
+  hero: {
+    padding: "120px 20px",
+    textAlign: "center",
+    background: "linear-gradient(135deg, #1976d2 0%, #0d47a1 100%)",
+    color: "white",
+    clipPath: "polygon(0 0, 100% 0, 100% 85%, 0 100%)",
+  },
+  heroTitle: {
+    fontSize: "3rem",
+    fontWeight: "700",
+    marginBottom: "20px",
+  },
+  heroSubtitle: {
+    fontSize: "1.2rem",
+    lineHeight: "1.8",
+  },
+  heroBtnPrimary: {
+    padding: "15px 35px",
+    background: "#d32f2f",
+    borderRadius: "50px",
+    border: "none",
+    color: "white",
+    fontWeight: "600",
+    marginRight: "15px",
+    cursor: "pointer",
+    transition: "0.3s",
+  },
+  heroBtnSecondary: {
+    padding: "15px 35px",
+    background: "transparent",
+    borderRadius: "50px",
+    border: "2px solid white",
+    color: "white",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "0.3s",
+  },
+  featuresSection: {
+    padding: "80px 20px",
+    textAlign: "center",
+    background: "#f5f5f5",
+  },
+  featuresGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+    gap: "30px",
+  },
+  featureCard: {
+    background: "white",
+    padding: "30px 20px",
+    borderRadius: "20px",
+    boxShadow: "0 8px 25px rgba(0,0,0,0.1)",
+    transition: "0.3s",
+    cursor: "pointer",
+  },
+  footer: {
+    padding: "50px 20px",
+    textAlign: "center",
     background: "#0d47a1",
     color: "white",
   },
-  navBtn: {
-    padding: "8px 15px",
-    background: "white",
-    color: "#0d47a1",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-  },
-  hero: {
-    padding: "80px 20px",
-    textAlign: "center",
-    background: "#e3f2fd",
-  },
-  section: {
-    padding: "60px 20px",
-    textAlign: "center",
-  },
-  features: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: "20px",
-    marginTop: "30px",
-  },
-  card: {
-    background: "white",
-    padding: "20px",
-    borderRadius: "8px",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-  },
-  primaryBtn: {
-    padding: "12px 20px",
-    background: "#d32f2f",
+  social: {
     color: "white",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-    margin: "10px",
+    textDecoration: "none",
+    fontWeight: "600",
+    transition: "0.3s",
   },
-  secondaryBtn: {
-    padding: "12px 20px",
-    background: "#1976d2",
-    color: "white",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-    margin: "10px",
-  },
-  footer: {
-    padding: "15px",
-    textAlign: "center",
-    background: "#eeeeee",
-  },
-
-  /* MAP OVERLAY */
   mapOverlay: {
     position: "fixed",
     inset: 0,
