@@ -10,7 +10,7 @@ import {
   addDoc,
   serverTimestamp
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, signOut } from "firebase/auth";
 import { db } from "./firebase";
 
 export default function ResourceManagerDashboard() {
@@ -18,7 +18,6 @@ export default function ResourceManagerDashboard() {
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  /* ADD RESOURCE */
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState("Ambulance");
@@ -57,8 +56,10 @@ export default function ResourceManagerDashboard() {
       name,
       type,
       status: "Available",
+      busy: false,
       centerId: user.centerId,
       assignedIncident: null,
+      assignedVolunteerId: null,
       createdAt: serverTimestamp()
     });
 
@@ -68,30 +69,54 @@ export default function ResourceManagerDashboard() {
   };
 
   /* 🔁 UPDATE STATUS */
-  const updateStatus = async (id, newStatus) => {
-    const data = { status: newStatus };
-    if (newStatus === "Available") data.assignedIncident = null;
+  const updateStatus = async (id, status) => {
+    const data = {
+      status,
+      busy: status !== "Available"
+    };
+
+    if (status === "Available") {
+      data.assignedIncident = null;
+      data.assignedVolunteerId = null;
+    }
+
     await updateDoc(doc(db, "resources", id), data);
   };
 
-  if (loading) return <p>Loading Resource Manager...</p>;
+  /* 🚪 LOGOUT */
+  const logout = async () => {
+    await signOut(getAuth());
+    window.location.href = "/";
+  };
+
+  if (loading) return <p>Loading...</p>;
 
   return (
     <div style={styles.container}>
       {/* SIDEBAR */}
       <aside style={styles.sidebar}>
-        <h2>🏥 Resource Center</h2>
-        <p>Center: {user.centerId}</p>
-        <button style={styles.addBtn} onClick={() => setShowAdd(true)}>
-          ➕ Add Resource
+        <div>
+          <h2 style={styles.logo}>🏥 Resource Hub</h2>
+          <p style={styles.subText}>Center</p>
+          <p style={styles.center}>{user.centerId}</p>
+
+          <button style={styles.addBtn} onClick={() => setShowAdd(true)}>
+            ➕ Add Resource
+          </button>
+        </div>
+
+        <button style={styles.logoutBtn} onClick={logout}>
+          🚪 Logout
         </button>
       </aside>
 
       {/* MAIN */}
       <main style={styles.main}>
-        <h2>🚑 Resource Dashboard</h2>
+        <h2 style={styles.heading}>🚑 Resources</h2>
 
-        {resources.length === 0 && <p>No resources found.</p>}
+        {resources.length === 0 && (
+          <p style={styles.empty}>No resources available.</p>
+        )}
 
         {resources.map(r => (
           <div key={r.id} style={styles.card}>
@@ -99,43 +124,57 @@ export default function ResourceManagerDashboard() {
               <h4>{icon(r.type)} {r.name}</h4>
               <p>Status: {badge(r.status)}</p>
               {r.assignedIncident && (
-                <p>📍 Assigned Incident: {r.assignedIncident}</p>
+                <p style={styles.small}>📍 Incident: {r.assignedIncident}</p>
               )}
             </div>
 
-            <div>
-              <select
-                value={r.status}
-                onChange={e => updateStatus(r.id, e.target.value)}
-              >
-                <option>Available</option>
-                <option>Busy</option>
-                <option>Under Maintenance</option>
-              </select>
-            </div>
+            <select
+              value={r.status}
+              style={styles.select}
+              onChange={e => updateStatus(r.id, e.target.value)}
+            >
+              <option>Available</option>
+              <option>Busy</option>
+              <option>Under Maintenance</option>
+            </select>
           </div>
         ))}
       </main>
 
-      {/* ADD RESOURCE MODAL */}
+      {/* MODAL */}
       {showAdd && (
         <div style={styles.overlay}>
           <div style={styles.modal}>
             <h3>➕ Add Resource</h3>
+
             <input
               placeholder="Resource Name"
               value={name}
               onChange={e => setName(e.target.value)}
+              style={styles.input}
             />
-            <select value={type} onChange={e => setType(e.target.value)}>
+
+            <select
+              value={type}
+              onChange={e => setType(e.target.value)}
+              style={styles.input}
+            >
               <option>Ambulance</option>
               <option>Fire Truck</option>
               <option>Police</option>
               <option>Rescue Van</option>
             </select>
-            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-              <button onClick={addResource}>Save</button>
-              <button onClick={() => setShowAdd(false)}>Cancel</button>
+
+            <div style={styles.modalActions}>
+              <button style={styles.saveBtn} onClick={addResource}>
+                Save
+              </button>
+              <button
+                style={styles.cancelBtn}
+                onClick={() => setShowAdd(false)}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -148,41 +187,165 @@ export default function ResourceManagerDashboard() {
 const icon = t =>
   t === "Ambulance" ? "🚑" :
   t === "Fire Truck" ? "🚒" :
-  t === "Police" ? "🚓" : "🛠️";
+  t === "Police" ? "🚓" :
+  t === "Rescue Van" ? "🚐" : "🛠️";
 
 const badge = s => (
   <span style={{
-    padding: "4px 8px",
-    borderRadius: 4,
+    padding: "4px 12px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 600,
     color: "#fff",
     background:
-      s === "Available" ? "#2ecc71" :
-      s === "Busy" ? "#e74c3c" :
-      s === "Under Maintenance" ? "#95a5a6" : "#7f8c8d"
+      s === "Available" ? "#14b8a6" :
+      s === "Busy" ? "#ef4444" :
+      s === "Under Maintenance" ? "#64748b" : "#94a3b8"
   }}>
     {s}
   </span>
 );
 
-/* STYLES */
+/* 🎨 STYLES (NEW COLOR COMBINATION) */
 const styles = {
-  container: { display: "flex", minHeight: "100vh", fontFamily: "Arial, sans-serif" },
-  sidebar: { width: 240, background: "#2c3e50", color: "#fff", padding: 20 },
-  addBtn: { marginTop: 20, padding: 10, width: "100%", cursor: "pointer" },
-  main: { flex: 1, padding: 25, background: "#f4f6f8" },
+  container: {
+    display: "flex",
+    minHeight: "100vh",
+    fontFamily: "'Inter', sans-serif",
+    background: "#f8fafc"
+  },
+
+  sidebar: {
+    width: 260,
+    background: "linear-gradient(180deg, #1f2933, #111827)",
+    color: "#fff",
+    padding: 26,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between"
+  },
+
+  logo: {
+    color: "#2dd4bf",
+    marginBottom: 6
+  },
+
+  subText: {
+    fontSize: 12,
+    opacity: 0.7
+  },
+
+  center: {
+    fontSize: 14,
+    marginBottom: 22
+  },
+
+  addBtn: {
+    width: "100%",
+    padding: 11,
+    borderRadius: 10,
+    border: "none",
+    background: "#2dd4bf",
+    color: "#042f2e",
+    fontWeight: 700,
+    cursor: "pointer"
+  },
+
+  logoutBtn: {
+    padding: 11,
+    borderRadius: 10,
+    border: "none",
+    background: "#ef4444",
+    color: "#fff",
+    fontWeight: 700,
+    cursor: "pointer"
+  },
+
+  main: {
+    flex: 1,
+    padding: 32
+  },
+
+  heading: {
+    marginBottom: 22,
+    color: "#0f172a"
+  },
+
+  empty: {
+    color: "#64748b"
+  },
+
   card: {
-    background: "#fff",
-    padding: 15,
-    marginBottom: 15,
+    background: "#ffffff",
+    padding: 18,
+    marginBottom: 16,
+    borderRadius: 16,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    boxShadow: "0 12px 30px rgba(0,0,0,0.08)"
+  },
+
+  small: {
+    fontSize: 13,
+    color: "#475569"
+  },
+
+  select: {
+    padding: 8,
     borderRadius: 8,
-    boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
+    border: "1px solid #cbd5e1"
   },
+
   overlay: {
-    position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-    display: "flex", justifyContent: "center", alignItems: "center"
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
   },
-  modal: { background: "#fff", padding: 20, borderRadius: 8, width: 300, display: "flex", flexDirection: "column", gap: 10 }
+
+  modal: {
+    background: "#ffffff",
+    padding: 22,
+    borderRadius: 16,
+    width: 320,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12
+  },
+
+  input: {
+    padding: 10,
+    borderRadius: 8,
+    border: "1px solid #94a3b8"
+  },
+
+  modalActions: {
+    display: "flex",
+    gap: 10,
+    marginTop: 12
+  },
+
+  saveBtn: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 10,
+    border: "none",
+    background: "#14b8a6",
+    color: "#042f2e",
+    fontWeight: 700,
+    cursor: "pointer"
+  },
+
+  cancelBtn: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 10,
+    border: "none",
+    background: "#cbd5e1",
+    fontWeight: 700,
+    cursor: "pointer"
+  }
 };

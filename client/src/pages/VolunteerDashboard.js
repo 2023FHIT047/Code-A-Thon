@@ -7,7 +7,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, signOut } from "firebase/auth";
 import { db } from "./firebase";
 import DashboardMap from "./DashboardMap";
 
@@ -78,7 +78,7 @@ export default function VolunteerDashboard() {
       completedAt: new Date()
     });
 
-    // Optionally, free all assigned resources
+    // Free assigned resources
     const inc = incidents.find(i => i.id === incidentId);
     if (inc?.assignedResourceIds?.length) {
       inc.assignedResourceIds.forEach(async rId => {
@@ -90,6 +90,12 @@ export default function VolunteerDashboard() {
     await updateDoc(doc(db, "users", user.uid), { busy: false });
   };
 
+  /* 🚪 LOGOUT */
+  const handleLogout = async () => {
+    await signOut(getAuth());
+    window.location.href = "/";
+  };
+
   if (loading) return <p>Loading...</p>;
   if (!user) return <p>Please login</p>;
 
@@ -99,6 +105,10 @@ export default function VolunteerDashboard() {
       <aside style={styles.sidebar}>
         <h2>👷 Volunteer</h2>
         <p style={{ fontSize: 13 }}>{user.email}</p>
+
+        <button style={styles.logoutBtn} onClick={handleLogout}>
+          🚪 Logout
+        </button>
       </aside>
 
       {/* MAIN */}
@@ -190,7 +200,21 @@ const styles = {
     width: 220,
     background: "#2c3e50",
     color: "#fff",
-    padding: 20
+    padding: 20,
+    
+    flexDirection: "column",
+    justifyContent: "space-between"
+  },
+  logoutBtn: {
+    width: "200px",
+    marginTop: 550,
+    padding: "10px",
+    background: "#e74c3c",
+    color: "#fff",
+    border: "none",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontWeight: 600
   },
   main: {
     flex: 1,

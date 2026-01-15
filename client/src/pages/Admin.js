@@ -10,7 +10,7 @@ import {
   where,
   onSnapshot
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, signOut } from "firebase/auth";
 import { db } from "./firebase";
 
 export default function Admin() {
@@ -24,7 +24,7 @@ export default function Admin() {
   const [centers, setCenters] = useState([]);
   const [newCenterName, setNewCenterName] = useState("");
 
-  // Load Admin User
+  /* ================= AUTH ================= */
   useEffect(() => {
     const auth = getAuth();
     const u = auth.currentUser;
@@ -36,318 +36,318 @@ export default function Admin() {
     });
   }, []);
 
-  // Load Approved Volunteers
-  useEffect(() => {
-    const q = query(
-      collection(db, "users"),
-      where("role", "==", "volunteer"),
-      where("approved", "==", true),
-      where("rejected", "==", false)
-    );
-    return onSnapshot(q, snap => {
-      setVolunteers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-  }, []);
-
-  // Load Pending Volunteers
-  useEffect(() => {
-    const q = query(
-      collection(db, "users"),
-      where("role", "==", "volunteer"),
-      where("approved", "==", false),
-      where("rejected", "==", false)
-    );
-    return onSnapshot(q, snap => {
-      setPendingVolunteers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-  }, []);
-
-  // Load Approved Resource Managers
-  useEffect(() => {
-    const q = query(
-      collection(db, "users"),
-      where("role", "==", "resource_manager"),
-      where("approved", "==", true),
-      where("rejected", "==", false)
-    );
-    return onSnapshot(q, snap => {
-      setResourceManagers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-  }, []);
-
-  // Load Pending Resource Managers
-  useEffect(() => {
-    const q = query(
-      collection(db, "users"),
-      where("role", "==", "resource_manager"),
-      where("approved", "==", false),
-      where("rejected", "==", false)
-    );
-    return onSnapshot(q, snap => {
-      setPendingRMs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-  }, []);
-
-  // Load Centers
-  useEffect(() => {
-    const q = collection(db, "centers");
-    return onSnapshot(q, snap => {
-      setCenters(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-  }, []);
-
-  // Approve Volunteer or RM
-  const approveUser = async (id) => {
-    await updateDoc(doc(db, "users", id), { approved: true });
+  const logout = async () => {
+    await signOut(getAuth());
+    localStorage.clear();
+    window.location.href = "/login";
   };
 
-  // Reject Volunteer or RM
-  const rejectUser = async (id) => {
-    await updateDoc(doc(db, "users", id), { rejected: true });
-  };
+  /* ================= USERS ================= */
+  useEffect(() => {
+    return onSnapshot(
+      query(
+        collection(db, "users"),
+        where("role", "==", "volunteer"),
+        where("approved", "==", true),
+        where("rejected", "==", false)
+      ),
+      snap => setVolunteers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+  }, []);
 
-  // Add Center
+  useEffect(() => {
+    return onSnapshot(
+      query(
+        collection(db, "users"),
+        where("role", "==", "volunteer"),
+        where("approved", "==", false),
+        where("rejected", "==", false)
+      ),
+      snap => setPendingVolunteers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+  }, []);
+
+  useEffect(() => {
+    return onSnapshot(
+      query(
+        collection(db, "users"),
+        where("role", "==", "resource_manager"),
+        where("approved", "==", true),
+        where("rejected", "==", false)
+      ),
+      snap => setResourceManagers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+  }, []);
+
+  useEffect(() => {
+    return onSnapshot(
+      query(
+        collection(db, "users"),
+        where("role", "==", "resource_manager"),
+        where("approved", "==", false),
+        where("rejected", "==", false)
+      ),
+      snap => setPendingRMs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+  }, []);
+
+  /* ================= CENTERS ================= */
+  useEffect(() => {
+    return onSnapshot(collection(db, "centers"), snap =>
+      setCenters(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+  }, []);
+
+  const approveUser = id => updateDoc(doc(db, "users", id), { approved: true });
+  const rejectUser = id => updateDoc(doc(db, "users", id), { rejected: true });
+
   const addCenter = async () => {
-    if (!newCenterName.trim()) return alert("Enter center name");
-
+    if (!newCenterName.trim()) return;
     await addDoc(collection(db, "centers"), {
       name: newCenterName,
       volunteers: [],
       resourceManagers: [],
       createdAt: serverTimestamp()
     });
-
     setNewCenterName("");
   };
 
-  // Assign Volunteer to Center
   const assignVolunteerToCenter = async (centerId, volunteerId) => {
     if (!volunteerId) return;
-
-    const centerRef = doc(db, "centers", centerId);
-    const centerSnap = await getDoc(centerRef);
-    const currentVolunteers = centerSnap.data().volunteers || [];
-
-    if (!currentVolunteers.includes(volunteerId)) {
-      await updateDoc(centerRef, {
-        volunteers: [...currentVolunteers, volunteerId]
-      });
+    const ref = doc(db, "centers", centerId);
+    const snap = await getDoc(ref);
+    const list = snap.data().volunteers || [];
+    if (!list.includes(volunteerId)) {
+      await updateDoc(ref, { volunteers: [...list, volunteerId] });
     }
   };
 
-  // Assign Resource Manager to Center
   const assignRMToCenter = async (centerId, rmId) => {
     if (!rmId) return;
-
-    const centerRef = doc(db, "centers", centerId);
-    const centerSnap = await getDoc(centerRef);
-    const currentRMs = centerSnap.data().resourceManagers || [];
-
-    if (!currentRMs.includes(rmId)) {
-      await updateDoc(centerRef, {
-        resourceManagers: [...currentRMs, rmId]
-      });
+    const ref = doc(db, "centers", centerId);
+    const snap = await getDoc(ref);
+    const list = snap.data().resourceManagers || [];
+    if (!list.includes(rmId)) {
+      await updateDoc(ref, { resourceManagers: [...list, rmId] });
     }
   };
 
-  if (loading) return <p>Loading Admin Dashboard...</p>;
+  if (loading) return <p style={{ padding: 40 }}>Loading Admin Dashboard...</p>;
 
   return (
     <div style={styles.container}>
       {/* SIDEBAR */}
       <aside style={styles.sidebar}>
-        <h2>👑 Admin Panel</h2>
-        <p>Welcome, {user.name || "Admin"}</p>
+        <div>
+          <h2 style={styles.logo}>👑 Admin Panel</h2>
+          <p style={styles.email}>{user.name}</p>
+        </div>
+        <button style={styles.logoutBtn} onClick={logout}>Logout</button>
       </aside>
 
       {/* MAIN */}
       <main style={styles.main}>
-        <h2>📊 Dashboard</h2>
+        <h2 style={styles.pageTitle}>Dashboard Overview</h2>
 
-        {/* Pending Volunteers */}
-        <section style={styles.section}>
-          <h3>⏳ Pending Volunteers</h3>
-          {pendingVolunteers.length === 0 && <p>No pending volunteers.</p>}
+        <div style={styles.statsGrid}>
+          <Stat label="Volunteers" value={volunteers.length} />
+          <Stat label="Resource Managers" value={resourceManagers.length} />
+          <Stat label="Centers" value={centers.length} />
+        </div>
+
+        <Section title="⏳ Pending Volunteers">
           {pendingVolunteers.map(v => (
-            <div key={v.id} style={styles.card}>
-              <p>{v.name} ({v.email})</p>
-              <div>
-                <button onClick={() => approveUser(v.id)}>Approve ✅</button>
-                <button onClick={() => rejectUser(v.id)} style={{ marginLeft: 5 }}>Reject ❌</button>
-              </div>
-            </div>
+            <UserCard key={v.id} user={v} onApprove={() => approveUser(v.id)} onReject={() => rejectUser(v.id)} />
           ))}
-        </section>
+          {!pendingVolunteers.length && <Muted />}
+        </Section>
 
-        {/* Pending Resource Managers */}
-        <section style={styles.section}>
-          <h3>⏳ Pending Resource Managers</h3>
-          {pendingRMs.length === 0 && <p>No pending Resource Managers.</p>}
+        <Section title="⏳ Pending Resource Managers">
           {pendingRMs.map(rm => (
-            <div key={rm.id} style={styles.card}>
-              <p>{rm.name} ({rm.email})</p>
-              <div>
-                <button onClick={() => approveUser(rm.id)}>Approve ✅</button>
-                <button onClick={() => rejectUser(rm.id)} style={{ marginLeft: 5 }}>Reject ❌</button>
-              </div>
-            </div>
+            <UserCard key={rm.id} user={rm} onApprove={() => approveUser(rm.id)} onReject={() => rejectUser(rm.id)} />
           ))}
-        </section>
+          {!pendingRMs.length && <Muted />}
+        </Section>
 
-        {/* Approved Volunteers */}
-        <section style={styles.section}>
-          <h3>👥 Volunteers</h3>
-          {volunteers.length === 0 && <p>No approved volunteers found.</p>}
-          {volunteers.map(v => (
-            <div key={v.id} style={styles.card}>
-              <p>{v.name} ({v.email})</p>
-            </div>
-          ))}
-        </section>
-
-        {/* Resource Managers */}
-        <section style={styles.section}>
-          <h3>🛠 Resource Managers</h3>
-          {resourceManagers.length === 0 && <p>No Resource Managers found.</p>}
-          {resourceManagers.map(rm => (
-            <div key={rm.id} style={styles.card}>
-              <p>{rm.name} ({rm.email})</p>
-            </div>
-          ))}
-        </section>
-
-        {/* Centers */}
-        <section style={styles.section}>
-          <h3>🏙 Centers / Cities</h3>
-          <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+        <Section title="🏙 Centers">
+          <div style={styles.addRow}>
             <input
+              style={styles.input}
               placeholder="New Center Name"
               value={newCenterName}
               onChange={e => setNewCenterName(e.target.value)}
             />
-            <button onClick={addCenter}>Add Center</button>
+            <button style={styles.primaryBtn} onClick={addCenter}>Add</button>
           </div>
 
-          {centers.length === 0 && <p>No centers found.</p>}
-          {centers.map(c => {
-            const centerVols = c.volunteers || [];
-            const centerRMs = c.resourceManagers || [];
-
-            return (
-              <div key={c.id} style={styles.cardColumn}>
-                <p style={{ fontWeight: "bold" }}>{c.name}</p>
-
-                {/* Assign Volunteers */}
-                <div>
-                  <p>Assign Volunteers:</p>
-                  {volunteers.length > 0 ? (
-                    <select
-                      onChange={e => {
-                        assignVolunteerToCenter(c.id, e.target.value);
-                        e.target.value = "";
-                      }}
-                      defaultValue=""
-                    >
-                      <option value="" disabled>Select Volunteer</option>
-                      {volunteers.map(v => (
-                        <option key={v.id} value={v.id}>{v.name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p>No volunteers available</p>
-                  )}
-                  <div>
-                    {centerVols.length > 0 ? (
-                      centerVols.map(vId => {
-                        const v = volunteers.find(vol => vol.id === vId);
-                        return v ? <span key={vId} style={styles.tag}>{v.name}</span> : null;
-                      })
-                    ) : (
-                      <span>No volunteers assigned</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Assign Resource Managers */}
-                <div style={{ marginTop: 10 }}>
-                  <p>Assign Resource Managers:</p>
-                  {resourceManagers.length > 0 ? (
-                    <select
-                      onChange={e => {
-                        assignRMToCenter(c.id, e.target.value);
-                        e.target.value = "";
-                      }}
-                      defaultValue=""
-                    >
-                      <option value="" disabled>Select RM</option>
-                      {resourceManagers.map(rm => (
-                        <option key={rm.id} value={rm.id}>{rm.name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p>No Resource Managers available</p>
-                  )}
-                  <div>
-                    {centerRMs.length > 0 ? (
-                      centerRMs.map(rmId => {
-                        const rm = resourceManagers.find(r => r.id === rmId);
-                        return rm ? <span key={rmId} style={styles.tag}>{rm.name}</span> : null;
-                      })
-                    ) : (
-                      <span>No RMs assigned</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </section>
-
-        {/* Stats */}
-        <section style={styles.section}>
-          <h3>📊 Stats</h3>
-          <p>Total Volunteers: {volunteers.length}</p>
-          <p>Total Resource Managers: {resourceManagers.length}</p>
-          <p>Total Centers: {centers.length}</p>
-        </section>
+          {centers.map(c => (
+            <div key={c.id} style={styles.centerCard}>
+              <h4>{c.name}</h4>
+              <AssignBox label="Volunteers" options={volunteers} assigned={c.volunteers} onAssign={id => assignVolunteerToCenter(c.id, id)} />
+              <AssignBox label="Resource Managers" options={resourceManagers} assigned={c.resourceManagers} onAssign={id => assignRMToCenter(c.id, id)} />
+            </div>
+          ))}
+        </Section>
       </main>
     </div>
   );
 }
 
-// STYLES
+/* ================= COMPONENTS ================= */
+
+const Section = ({ title, children }) => (
+  <section style={styles.section}>
+    <h3>{title}</h3>
+    {children}
+  </section>
+);
+
+const UserCard = ({ user, onApprove, onReject }) => (
+  <div style={styles.card}>
+    <div>
+      <b>{user.name}</b>
+      <p style={styles.muted}>{user.email}</p>
+    </div>
+    <div>
+      <button style={styles.approveBtn} onClick={onApprove}>Approve</button>
+      <button style={styles.rejectBtn} onClick={onReject}>Reject</button>
+    </div>
+  </div>
+);
+
+const AssignBox = ({ label, options, assigned = [], onAssign }) => (
+  <div style={{ marginTop: 10 }}>
+    <p><b>{label}</b></p>
+    <select style={styles.select} onChange={e => { onAssign(e.target.value); e.target.value = ""; }}>
+      <option value="">Assign {label}</option>
+      {options.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+    </select>
+    <div>
+      {assigned?.length
+        ? assigned.map(id => <span key={id} style={styles.tag}>{id}</span>)
+        : <span style={styles.muted}>None assigned</span>}
+    </div>
+  </div>
+);
+
+const Stat = ({ label, value }) => (
+  <div style={styles.statCard}>
+    <h2>{value}</h2>
+    <p>{label}</p>
+  </div>
+);
+
+const Muted = () => <p style={styles.muted}>No records found</p>;
+
+/* ================= NEW PALETTE ================= */
+
 const styles = {
-  container: { display: "flex", minHeight: "100vh", fontFamily: "Arial, sans-serif" },
-  sidebar: { width: 240, background: "#2c3e50", color: "#fff", padding: 20 },
-  main: { flex: 1, padding: 25, background: "#f4f6f8" },
-  section: { marginBottom: 30 },
-  card: {
-    background: "#fff",
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 8,
-    boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
-  cardColumn: {
-    background: "#fff",
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 8,
-    boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+  container: { display: "flex", minHeight: "100vh", fontFamily: "'Inter', sans-serif" },
+
+  sidebar: {
+    width: 260,
+    background: "linear-gradient(180deg,#1e3a8a,#3b82f6)",
+    color: "#fff",
+    padding: 28,
     display: "flex",
     flexDirection: "column",
-    gap: 10
+    justifyContent: "space-between",
+    boxShadow: "4px 0 20px rgba(0,0,0,0.25)"
   },
+
+  logo: { marginBottom: 6 },
+  email: { fontSize: 13, color: "#c7d2fe" },
+
+  logoutBtn: {
+    background: "linear-gradient(135deg,#f472b6,#f97316)",
+    border: "none",
+    padding: 12,
+    borderRadius: 10,
+    color: "#fff",
+    fontWeight: 700,
+    cursor: "pointer"
+  },
+
+  main: { flex: 1, padding: 36, background: "#f9fafb" },
+  pageTitle: { marginBottom: 20 },
+
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+    gap: 18,
+    marginBottom: 30
+  },
+
+  statCard: {
+    background: "#fff",
+    padding: 22,
+    borderRadius: 16,
+    textAlign: "center",
+    boxShadow: "0 12px 30px rgba(59,130,246,0.15)"
+  },
+
+  section: {
+    background: "#fff",
+    padding: 22,
+    borderRadius: 18,
+    marginBottom: 32,
+    boxShadow: "0 15px 40px rgba(0,0,0,0.08)"
+  },
+
+  card: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: 14,
+    borderRadius: 12,
+    background: "#f3f4f6",
+    marginTop: 10
+  },
+
+  approveBtn: {
+    background: "#6366f1",
+    border: "none",
+    color: "#fff",
+    padding: "6px 10px",
+    borderRadius: 8,
+    marginRight: 6
+  },
+
+  rejectBtn: {
+    background: "#f43f5e",
+    border: "none",
+    color: "#fff",
+    padding: "6px 10px",
+    borderRadius: 8
+  },
+
+  addRow: { display: "flex", gap: 12, marginBottom: 14 },
+  input: { padding: 10, borderRadius: 10, border: "1px solid #cbd5e1" },
+  select: { padding: 8, borderRadius: 8, border: "1px solid #cbd5e1" },
+
+  primaryBtn: {
+    background: "linear-gradient(135deg,#f472b6,#fb7185)",
+    color: "#fff",
+    border: "none",
+    padding: "10px 16px",
+    borderRadius: 10
+  },
+
+  centerCard: {
+    background: "#f3f4f6",
+    padding: 16,
+    borderRadius: 14,
+    marginTop: 14
+  },
+
   tag: {
     display: "inline-block",
-    background: "#3498db",
-    color: "#fff",
-    padding: "3px 8px",
-    margin: "2px",
-    borderRadius: 4,
-    fontSize: 12
-  }
+    background: "#e0e7ff",
+    color: "#4338ca",
+    padding: "4px 10px",
+    borderRadius: 20,
+    fontSize: 12,
+    margin: 4
+  },
+
+  muted: { color: "#6b7280", fontSize: 13 }
 };

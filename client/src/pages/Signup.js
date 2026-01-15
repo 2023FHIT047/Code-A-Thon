@@ -20,7 +20,7 @@ export default function Signup() {
   const [centers, setCenters] = useState([]);
   const navigate = useNavigate();
 
-  /* 🔄 LOAD CENTERS FROM FIRESTORE */
+  /* 🔄 LOAD CENTERS */
   useEffect(() => {
     const fetchCenters = async () => {
       const snap = await getDocs(collection(db, "centers"));
@@ -34,26 +34,21 @@ export default function Signup() {
       setError("");
 
       if (!name || !email || !password || !contact) {
-        return setError("All fields are required.");
+        return setError("Please fill all required fields.");
       }
 
-      /* 🔐 COORDINATOR VALIDATION */
       if (role === "coordinator" && coordinatorCode !== COORDINATOR_SECRET_CODE) {
         return setError("Invalid Coordinator Secret Code.");
       }
 
-      /* 🌆 VALIDATE CENTER FOR VOLUNTEER & RESOURCE MANAGER */
       if ((role === "volunteer" || role === "resourceManager") && !selectedCenter) {
-        return setError("Please select a city/center.");
+        return setError("Please select a city / center.");
       }
 
-      // Create Auth User
       const res = await createUserWithEmailAndPassword(auth, email, password);
 
-      // Auto approval logic
       const autoApprove = role === "community" || role === "coordinator";
 
-      // Save user to Firestore
       await setDoc(doc(db, "users", res.user.uid), {
         name,
         email,
@@ -75,32 +70,32 @@ export default function Signup() {
     <div style={styles.page}>
       <div style={styles.card}>
         <h2 style={styles.heading}>Create Account</h2>
-        <p style={styles.subText}>Join the platform</p>
+        <p style={styles.subText}>Crisis Response Platform</p>
 
-        {error && <p style={styles.error}>{error}</p>}
+        {error && <div style={styles.errorBox}>{error}</div>}
 
         <div style={styles.field}>
           <label>Full Name</label>
-          <input value={name} onChange={e => setName(e.target.value)} />
+          <input placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} />
         </div>
 
         <div style={styles.field}>
           <label>Email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} />
+          <input type="email" placeholder="john@email.com" value={email} onChange={e => setEmail(e.target.value)} />
         </div>
 
         <div style={styles.field}>
           <label>Password</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} />
+          <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
         </div>
 
         <div style={styles.field}>
           <label>Contact Number</label>
-          <input value={contact} onChange={e => setContact(e.target.value)} />
+          <input placeholder="9876543210" value={contact} onChange={e => setContact(e.target.value)} />
         </div>
 
         <div style={styles.field}>
-          <label>Role</label>
+          <label>Select Role</label>
           <select value={role} onChange={e => setRole(e.target.value)}>
             <option value="community">Community User</option>
             <option value="volunteer">Volunteer</option>
@@ -109,9 +104,8 @@ export default function Signup() {
           </select>
         </div>
 
-        {/* SHOW CENTER DROPDOWN FOR VOLUNTEER & RESOURCE MANAGER */}
         {(role === "volunteer" || role === "resourceManager") && (
-          <div style={styles.field}>
+          <div style={styles.highlightBox}>
             <label>City / Center</label>
             <select value={selectedCenter} onChange={e => setSelectedCenter(e.target.value)}>
               <option value="">Select Center</option>
@@ -122,9 +116,8 @@ export default function Signup() {
           </div>
         )}
 
-        {/* COORDINATOR SECRET CODE */}
         {role === "coordinator" && (
-          <div style={{ ...styles.field, borderLeft: "4px solid #e74c3c", paddingLeft: 10 }}>
+          <div style={{ ...styles.highlightBox, borderLeft: "4px solid #ef4444" }}>
             <label>Coordinator Secret Code</label>
             <input
               placeholder="Enter secret code"
@@ -135,7 +128,7 @@ export default function Signup() {
         )}
 
         <button onClick={signup} style={styles.button}>
-          Sign Up
+          Create Account
         </button>
 
         <p style={styles.footerText}>
@@ -149,40 +142,88 @@ export default function Signup() {
   );
 }
 
-/* 🎨 STYLES */
+/* 🎨 PREMIUM STYLES */
 const styles = {
   page: {
     minHeight: "100vh",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    background: "linear-gradient(135deg, #74ebd5, #9face6)",
-    fontFamily: "Segoe UI"
+    background: "linear-gradient(135deg, #1e3c72, #2a5298)",
+    fontFamily: "'Inter', Segoe UI, sans-serif"
   },
+
   card: {
-    width: 380,
-    background: "#fff",
-    padding: 30,
-    borderRadius: 12,
-    boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+    width: 420,
+    background: "rgba(255,255,255,0.95)",
+    backdropFilter: "blur(10px)",
+    padding: 32,
+    borderRadius: 18,
+    boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
     display: "flex",
     flexDirection: "column",
     gap: 14
   },
-  heading: { textAlign: "center", marginBottom: 4 },
-  subText: { textAlign: "center", fontSize: 14, color: "#666", marginBottom: 10 },
-  field: { display: "flex", flexDirection: "column", gap: 4 },
-  error: { color: "#e74c3c", textAlign: "center", fontSize: 14 },
+
+  heading: {
+    textAlign: "center",
+    marginBottom: 2,
+    fontSize: 24
+  },
+
+  subText: {
+    textAlign: "center",
+    fontSize: 14,
+    color: "#64748b",
+    marginBottom: 10
+  },
+
+  field: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6
+  },
+
+  highlightBox: {
+    background: "#f1f5f9",
+    padding: 12,
+    borderRadius: 10,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6
+  },
+
+  errorBox: {
+    background: "#fee2e2",
+    color: "#991b1b",
+    padding: 10,
+    borderRadius: 8,
+    fontSize: 14,
+    textAlign: "center"
+  },
+
   button: {
     marginTop: 10,
-    padding: 12,
-    borderRadius: 6,
+    padding: 14,
+    borderRadius: 10,
     border: "none",
-    background: "#3498db",
+    background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
     color: "#fff",
     fontSize: 16,
-    cursor: "pointer"
+    fontWeight: 600,
+    cursor: "pointer",
+    boxShadow: "0 10px 25px rgba(37,99,235,0.4)"
   },
-  footerText: { textAlign: "center", fontSize: 14 },
-  link: { color: "#3498db", fontWeight: "bold", cursor: "pointer" }
+
+  footerText: {
+    textAlign: "center",
+    fontSize: 14,
+    marginTop: 8
+  },
+
+  link: {
+    color: "#2563eb",
+    fontWeight: 600,
+    cursor: "pointer"
+  }
 };

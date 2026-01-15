@@ -1,111 +1,188 @@
 import { useEffect, useState } from "react";
 import { collection, addDoc, onSnapshot } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, signOut } from "firebase/auth";
 import { db } from "./firebase";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMapEvents
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Fix default marker icon issue in Leaflet
+/* 🔧 FIX LEAFLET ICONS */
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
+  iconUrl: require("leaflet/dist/images/marker-icon.png"),
+  shadowUrl: require("leaflet/dist/images/marker-shadow.png")
 });
 
 export default function CommunityDashboard() {
   const [user, setUser] = useState(null);
-  const [activeSection, setActiveSection] = useState("report");
+  const [active, setActive] = useState("report");
   const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [newIncident, setNewIncident] = useState({
     title: "",
     description: "",
     severity: "Low",
     lat: null,
-    lng: null,
+    lng: null
   });
-  const [loading, setLoading] = useState(false);
 
-  // Get logged-in user
+  /* 🔐 AUTH */
   useEffect(() => {
     const auth = getAuth();
-    const currentUser = auth.currentUser;
-    if (currentUser) setUser({ uid: currentUser.uid, email: currentUser.email });
-    else {
-      const storedUser = JSON.parse(localStorage.getItem("user"));
-      if (storedUser) setUser(storedUser);
-    }
+    const u = auth.currentUser;
+    if (u) setUser({ uid: u.uid, email: u.email });
   }, []);
 
-  // Fetch incidents
+  const logout = async () => {
+    await signOut(getAuth());
+    localStorage.clear();
+    window.location.href = "/login";
+  };
+
+  /* 🚨 INCIDENTS */
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "incidents"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setIncidents(data);
+    return onSnapshot(collection(db, "incidents"), snap => {
+      setIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    return () => unsub();
   }, []);
 
-  // Submit new incident
-  const handleSubmit = async (e) => {
+  const myReports = incidents.filter(i => i.reportedBy === user?.uid);
+
+  /* ➕ SUBMIT */
+  const submitIncident = async e => {
     e.preventDefault();
-    if (!user || newIncident.lat === null || newIncident.lng === null) {
-      alert("Please select a location on the map.");
+    if (!newIncident.lat || !newIncident.lng) {
+      alert("Please select a location on the map");
       return;
     }
+
     setLoading(true);
-    try {
-      await addDoc(collection(db, "incidents"), {
-        ...newIncident,
-        status: "Pending",
-        reportedBy: user.uid,
-      });
-      setNewIncident({ title: "", description: "", severity: "Low", lat: null, lng: null });
-      alert("Incident reported successfully!");
-    } catch (err) {
-      alert("Error reporting incident: " + err.message);
-    }
+    await addDoc(collection(db, "incidents"), {
+      ...newIncident,
+      status: "Pending",
+      reportedBy: user.uid
+    });
+
+    setNewIncident({
+      title: "",
+      description: "",
+      severity: "Low",
+      lat: null,
+      lng: null
+    });
+
     setLoading(false);
+    alert("Incident reported successfully");
   };
 
-  if (!user) return <p>Loading user info...</p>;
-
-  const myReports = incidents.filter(inc => inc.reportedBy === user.uid);
-
-  // Component for selecting location by clicking on map
-  const LocationSelector = () => {
+  /* 🗺 MAP PICKER */
+  const LocationPicker = () => {
     useMapEvents({
       click(e) {
-        setNewIncident({ ...newIncident, lat: e.latlng.lat, lng: e.latlng.lng });
-      },
+        setNewIncident({
+          ...newIncident,
+          lat: e.latlng.lat,
+          lng: e.latlng.lng
+        });
+      }
     });
-    return newIncident.lat && newIncident.lng ? <Marker position={[newIncident.lat, newIncident.lng]} /> : null;
+
+    return newIncident.lat ? (
+      <Marker position={[newIncident.lat, newIncident.lng]} />
+    ) : null;
   };
 
-  const renderSection = () => {
-    switch (activeSection) {
-      case "report":
-        return (
-          <div style={styles.section}>
-            <h3>🚨 Report a New Incident</h3>
-            <form onSubmit={handleSubmit} style={styles.form}>
+  if (!user) return <p>Loading...</p>;
+
+  return (
+    <div style={styles.container}>
+      {/* SIDEBAR */}
+      <aside style={styles.sidebar}>
+        <div>
+          <h2 style={styles.logo}>🏘 Community</h2>
+          <p style={styles.email}>{user.email}</p>
+
+          <nav style={styles.nav}>
+            <button
+              style={{
+                ...styles.navBtn,
+                ...(active === "report" && styles.navActive)
+              }}
+              onClick={() => setActive("report")}
+            >
+              🚨 Report Incident
+            </button>
+
+            <button
+              style={{
+                ...styles.navBtn,
+                ...(active === "my" && styles.navActive)
+              }}
+              onClick={() => setActive("my")}
+            >
+              📝 My Reports
+            </button>
+
+            <button
+              style={{
+                ...styles.navBtn,
+                ...(active === "all" && styles.navActive)
+              }}
+              onClick={() => setActive("all")}
+            >
+              🌍 All Incidents
+            </button>
+          </nav>
+        </div>
+
+        <button style={styles.logoutBtn} onClick={logout}>
+          🚪 Logout
+        </button>
+      </aside>
+
+      {/* MAIN */}
+      <main style={styles.main}>
+        {active === "report" && (
+          <div style={styles.card}>
+            <h3>🚨 Report New Incident</h3>
+
+            <form onSubmit={submitIncident} style={styles.form}>
               <input
-                type="text"
-                placeholder="Title"
+                placeholder="Incident Title"
                 value={newIncident.title}
-                onChange={(e) => setNewIncident({ ...newIncident, title: e.target.value })}
+                onChange={e =>
+                  setNewIncident({ ...newIncident, title: e.target.value })
+                }
                 required
               />
+
               <textarea
                 placeholder="Description"
                 value={newIncident.description}
-                onChange={(e) => setNewIncident({ ...newIncident, description: e.target.value })}
+                onChange={e =>
+                  setNewIncident({
+                    ...newIncident,
+                    description: e.target.value
+                  })
+                }
                 required
               />
+
               <select
                 value={newIncident.severity}
-                onChange={(e) => setNewIncident({ ...newIncident, severity: e.target.value })}
+                onChange={e =>
+                  setNewIncident({
+                    ...newIncident,
+                    severity: e.target.value
+                  })
+                }
               >
                 <option>Low</option>
                 <option>Medium</option>
@@ -113,102 +190,141 @@ export default function CommunityDashboard() {
                 <option>Critical</option>
               </select>
 
-              <p>
-                {newIncident.lat && newIncident.lng
-                  ? `Selected Location: (${newIncident.lat.toFixed(4)}, ${newIncident.lng.toFixed(4)})`
-                  : "Click on the map to select location"}
-              </p>
-
-              <MapContainer center={[20, 78]} zoom={5} style={{ height: 300, marginBottom: 10 }}>
+              <MapContainer center={[20, 78]} zoom={5} style={styles.map}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <LocationSelector />
+                <LocationPicker />
               </MapContainer>
 
-              <button type="submit" disabled={loading} style={styles.button}>
-                {loading ? "Reporting..." : "Report Incident"}
+              <button style={styles.primaryBtn} disabled={loading}>
+                {loading ? "Submitting..." : "Submit Incident"}
               </button>
             </form>
           </div>
-        );
+        )}
 
-      case "myReports":
-        return (
-          <div style={styles.section}>
-            <h3>📝 My Reported Incidents</h3>
-            <MapContainer center={[20, 78]} zoom={5} style={{ height: 300, marginBottom: 10 }}>
+        {(active === "my" || active === "all") && (
+          <div style={styles.card}>
+            <h3>{active === "my" ? "📝 My Reports" : "🌍 All Incidents"}</h3>
+
+            <MapContainer center={[20, 78]} zoom={5} style={styles.map}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              {myReports.map(inc => (
+              {(active === "my" ? myReports : incidents).map(inc => (
                 <Marker key={inc.id} position={[inc.lat, inc.lng]}>
-                  <Popup>{inc.title} - {inc.status}</Popup>
+                  <Popup>
+                    <b>{inc.title}</b><br />
+                    Status: {inc.status}
+                  </Popup>
                 </Marker>
               ))}
             </MapContainer>
-            {myReports.map(inc => (
-              <div key={inc.id} style={styles.card}>
+
+            {(active === "my" ? myReports : incidents).map(inc => (
+              <div key={inc.id} style={styles.incident}>
                 <h4>{inc.title}</h4>
                 <p>{inc.description}</p>
-                <p><b>Status:</b> {inc.status}</p>
-                <p><b>Severity:</b> {inc.severity}</p>
+                <span style={styles.badge}>{inc.status}</span>
               </div>
             ))}
           </div>
-        );
-
-      case "allIncidents":
-        return (
-          <div style={styles.section}>
-            <h3>🌍 All Incidents</h3>
-            <MapContainer center={[20, 78]} zoom={5} style={{ height: 300, marginBottom: 10 }}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              {incidents.map(inc => (
-                <Marker key={inc.id} position={[inc.lat, inc.lng]}>
-                  <Popup>{inc.title} - {inc.status}</Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-            {incidents.map(inc => (
-              <div key={inc.id} style={styles.card}>
-                <h4>{inc.title}</h4>
-                <p>{inc.description}</p>
-                <p><b>Status:</b> {inc.status}</p>
-                <p><b>Severity:</b> {inc.severity}</p>
-              </div>
-            ))}
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div style={styles.container}>
-      {/* Sidebar */}
-      <aside style={styles.sidebar}>
-        <h2>🏘 Community Panel</h2>
-        <nav>
-          <button style={styles.navBtn} onClick={() => setActiveSection("report")}>Report Incident</button>
-          <button style={styles.navBtn} onClick={() => setActiveSection("myReports")}>My Reports</button>
-          <button style={styles.navBtn} onClick={() => setActiveSection("allIncidents")}>All Incidents</button>
-        </nav>
-      </aside>
-
-      {/* Main Content */}
-      <main style={styles.mainContent}>
-        {renderSection()}
+        )}
       </main>
     </div>
   );
 }
 
+/* 🌅 SUNSET–PURPLE THEME */
 const styles = {
-  container: { display: "flex", minHeight: "100vh", fontFamily: "Arial", background: "#f4f6f8" },
-  sidebar: { width: "220px", background: "#16a085", color: "#fff", padding: "20px", display: "flex", flexDirection: "column", gap: "10px" },
-  navBtn: { padding: "10px 15px", margin: "5px 0", background: "#1abc9c", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer", textAlign: "left" },
-  mainContent: { flex: 1, padding: "20px", overflowY: "auto" },
-  section: { background: "#fff", padding: "15px", borderRadius: "8px", boxShadow: "0 2px 6px rgba(0,0,0,0.1)", marginBottom: "20px" },
-  card: { background: "#fafafa", padding: "12px", marginBottom: "12px", borderRadius: "6px", display: "grid", gap: "8px" },
-  form: { display: "flex", flexDirection: "column", gap: 10 },
-  button: { padding: 10, background: "#16a085", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer" },
+  container: {
+    display: "flex",
+    minHeight: "100vh",
+    fontFamily: "'Inter', sans-serif",
+    background: "#faf5ff"
+  },
+
+  sidebar: {
+    width: 260,
+    background: "linear-gradient(180deg,#6d28d9,#db2777)",
+    color: "#fff",
+    padding: 26,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between"
+  },
+
+  logo: { marginBottom: 6, fontSize: 22 },
+  email: { fontSize: 13, opacity: 0.9 },
+
+  nav: { marginTop: 30, display: "grid", gap: 12 },
+
+  navBtn: {
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: "none",
+    background: "rgba(255,255,255,0.18)",
+    color: "#fff",
+    fontWeight: 600,
+    textAlign: "left",
+    cursor: "pointer"
+  },
+
+  navActive: {
+    background: "#f9a8d4",
+    color: "#4a044e",
+    fontWeight: 700
+  },
+
+  logoutBtn: {
+    padding: 12,
+    borderRadius: 12,
+    border: "none",
+    background: "linear-gradient(135deg,#ef4444,#be123c)",
+    color: "#fff",
+    fontWeight: 700,
+    cursor: "pointer"
+  },
+
+  main: { flex: 1, padding: 34 },
+
+  card: {
+    background: "#ffffff",
+    padding: 26,
+    borderRadius: 20,
+    boxShadow: "0 25px 50px rgba(0,0,0,0.15)"
+  },
+
+  form: { display: "grid", gap: 14 },
+
+  primaryBtn: {
+    background: "linear-gradient(135deg,#8b5cf6,#6366f1)",
+    padding: 14,
+    borderRadius: 14,
+    border: "none",
+    color: "#fff",
+    fontWeight: 700,
+    cursor: "pointer"
+  },
+
+  map: {
+    height: 340,
+    borderRadius: 16,
+    overflow: "hidden"
+  },
+
+  incident: {
+    background: "#fdf4ff",
+    padding: 16,
+    borderRadius: 14,
+    marginTop: 14
+  },
+
+  badge: {
+    display: "inline-block",
+    marginTop: 6,
+    padding: "6px 14px",
+    borderRadius: 999,
+    background: "#ede9fe",
+    color: "#5b21b6",
+    fontSize: 12,
+    fontWeight: 700
+  }
 };
