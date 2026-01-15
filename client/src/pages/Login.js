@@ -50,9 +50,9 @@ export default function Login() {
       // Role-based navigation
       if (role === "coordinator") navigate("/CoordinatorDashboard");
       else if (role === "volunteer") navigate("/VolunteerDashboard");
-      else if (role === "resourceManager") navigate("/ResourceManagerDashboard");
-      else navigate("/CommunityDashboard");
-
+      else if (role === "resource_manager") navigate("/ResourceManagerDashboard");
+      else if (role === "community") navigate("/CommunityDashboard");
+      else if (role === "admin") navigate("/Admin");
     } catch (err) {
       setError("Invalid email or password");
     }

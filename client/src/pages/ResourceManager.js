@@ -16,16 +16,12 @@ import { db } from "./firebase";
 export default function ResourceManagerDashboard() {
   const [user, setUser] = useState(null);
   const [resources, setResources] = useState([]);
-  const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   /* ADD RESOURCE */
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState("Ambulance");
-
-  /* ASSIGN */
-  const [selectedIncident, setSelectedIncident] = useState("");
 
   /* 🔐 LOAD USER */
   useEffect(() => {
@@ -53,24 +49,9 @@ export default function ResourceManagerDashboard() {
     });
   }, [user]);
 
-  /* 🚨 LOAD OPEN INCIDENTS */
-  useEffect(() => {
-    if (!user?.centerId) return;
-
-    const q = query(
-      collection(db, "incidents"),
-      where("centerId", "==", user.centerId),
-      where("status", "==", "Open")
-    );
-
-    return onSnapshot(q, snap => {
-      setIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-  }, [user]);
-
   /* ➕ ADD RESOURCE */
   const addResource = async () => {
-    if (!name) return alert("Enter resource name");
+    if (!name.trim()) return alert("Enter resource name");
 
     await addDoc(collection(db, "resources"), {
       name,
@@ -86,25 +67,10 @@ export default function ResourceManagerDashboard() {
     setShowAdd(false);
   };
 
-  /* 📌 ASSIGN RESOURCE */
-  const assignResource = async (resourceId) => {
-    if (!selectedIncident) {
-      alert("Select an incident");
-      return;
-    }
-
-    await updateDoc(doc(db, "resources", resourceId), {
-      status: "Assigned",
-      assignedIncident: selectedIncident
-    });
-
-    setSelectedIncident("");
-  };
-
   /* 🔁 UPDATE STATUS */
-  const updateStatus = async (id, status) => {
-    const data = { status };
-    if (status === "Available") data.assignedIncident = null;
+  const updateStatus = async (id, newStatus) => {
+    const data = { status: newStatus };
+    if (newStatus === "Available") data.assignedIncident = null;
     await updateDoc(doc(db, "resources", id), data);
   };
 
@@ -115,7 +81,7 @@ export default function ResourceManagerDashboard() {
       {/* SIDEBAR */}
       <aside style={styles.sidebar}>
         <h2>🏥 Resource Center</h2>
-        <p>{user.centerId}</p>
+        <p>Center: {user.centerId}</p>
         <button style={styles.addBtn} onClick={() => setShowAdd(true)}>
           ➕ Add Resource
         </button>
@@ -125,51 +91,33 @@ export default function ResourceManagerDashboard() {
       <main style={styles.main}>
         <h2>🚑 Resource Dashboard</h2>
 
+        {resources.length === 0 && <p>No resources found.</p>}
+
         {resources.map(r => (
           <div key={r.id} style={styles.card}>
             <div>
               <h4>{icon(r.type)} {r.name}</h4>
               <p>Status: {badge(r.status)}</p>
               {r.assignedIncident && (
-                <p>📍 Incident: {r.assignedIncident}</p>
+                <p>📍 Assigned Incident: {r.assignedIncident}</p>
               )}
             </div>
 
-            <div style={{ display: "grid", gap: 6 }}>
-              {r.status === "Available" && (
-                <>
-                  <select
-                    value={selectedIncident}
-                    onChange={e => setSelectedIncident(e.target.value)}
-                  >
-                    <option value="">Select Incident</option>
-                    {incidents.map(i => (
-                      <option key={i.id} value={i.id}>
-                        {i.title || i.id}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button onClick={() => assignResource(r.id)}>
-                    📌 Assign
-                  </button>
-                </>
-              )}
-
+            <div>
               <select
                 value={r.status}
                 onChange={e => updateStatus(r.id, e.target.value)}
               >
                 <option>Available</option>
-                <option>Assigned</option>
                 <option>Busy</option>
+                <option>Under Maintenance</option>
               </select>
             </div>
           </div>
         ))}
       </main>
 
-      {/* ADD MODAL */}
+      {/* ADD RESOURCE MODAL */}
       {showAdd && (
         <div style={styles.overlay}>
           <div style={styles.modal}>
@@ -185,8 +133,10 @@ export default function ResourceManagerDashboard() {
               <option>Police</option>
               <option>Rescue Van</option>
             </select>
-            <button onClick={addResource}>Save</button>
-            <button onClick={() => setShowAdd(false)}>Cancel</button>
+            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+              <button onClick={addResource}>Save</button>
+              <button onClick={() => setShowAdd(false)}>Cancel</button>
+            </div>
           </div>
         </div>
       )}
@@ -207,16 +157,18 @@ const badge = s => (
     color: "#fff",
     background:
       s === "Available" ? "#2ecc71" :
-      s === "Assigned" ? "#f39c12" : "#e74c3c"
+      s === "Busy" ? "#e74c3c" :
+      s === "Under Maintenance" ? "#95a5a6" : "#7f8c8d"
   }}>
     {s}
   </span>
 );
 
+/* STYLES */
 const styles = {
-  container: { display: "flex", minHeight: "100vh" },
+  container: { display: "flex", minHeight: "100vh", fontFamily: "Arial, sans-serif" },
   sidebar: { width: 240, background: "#2c3e50", color: "#fff", padding: 20 },
-  addBtn: { marginTop: 20, padding: 10, width: "100%" },
+  addBtn: { marginTop: 20, padding: 10, width: "100%", cursor: "pointer" },
   main: { flex: 1, padding: 25, background: "#f4f6f8" },
   card: {
     background: "#fff",
@@ -224,11 +176,13 @@ const styles = {
     marginBottom: 15,
     display: "flex",
     justifyContent: "space-between",
-    borderRadius: 8
+    alignItems: "center",
+    borderRadius: 8,
+    boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
   },
   overlay: {
     position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
     display: "flex", justifyContent: "center", alignItems: "center"
   },
-  modal: { background: "#fff", padding: 20, borderRadius: 8, width: 300 }
+  modal: { background: "#fff", padding: 20, borderRadius: 8, width: 300, display: "flex", flexDirection: "column", gap: 10 }
 };

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { useNavigate } from "react-router-dom";
 
@@ -14,9 +14,20 @@ export default function Signup() {
   const [contact, setContact] = useState("");
   const [role, setRole] = useState("community");
   const [coordinatorCode, setCoordinatorCode] = useState("");
+  const [selectedCenter, setSelectedCenter] = useState("");
   const [error, setError] = useState("");
 
+  const [centers, setCenters] = useState([]);
   const navigate = useNavigate();
+
+  /* 🔄 LOAD CENTERS FROM FIRESTORE */
+  useEffect(() => {
+    const fetchCenters = async () => {
+      const snap = await getDocs(collection(db, "centers"));
+      setCenters(snap.docs.map(d => ({ id: d.id, name: d.data().name })));
+    };
+    fetchCenters();
+  }, []);
 
   const signup = async () => {
     try {
@@ -31,6 +42,11 @@ export default function Signup() {
         return setError("Invalid Coordinator Secret Code.");
       }
 
+      /* 🌆 VALIDATE CENTER FOR VOLUNTEER & RESOURCE MANAGER */
+      if ((role === "volunteer" || role === "resourceManager") && !selectedCenter) {
+        return setError("Please select a city/center.");
+      }
+
       // Create Auth User
       const res = await createUserWithEmailAndPassword(auth, email, password);
 
@@ -43,6 +59,7 @@ export default function Signup() {
         email,
         contact,
         role,
+        centerId: selectedCenter || null,
         approved: autoApprove,
         rejected: false,
         createdAt: new Date()
@@ -92,6 +109,20 @@ export default function Signup() {
           </select>
         </div>
 
+        {/* SHOW CENTER DROPDOWN FOR VOLUNTEER & RESOURCE MANAGER */}
+        {(role === "volunteer" || role === "resourceManager") && (
+          <div style={styles.field}>
+            <label>City / Center</label>
+            <select value={selectedCenter} onChange={e => setSelectedCenter(e.target.value)}>
+              <option value="">Select Center</option>
+              {centers.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* COORDINATOR SECRET CODE */}
         {role === "coordinator" && (
           <div style={{ ...styles.field, borderLeft: "4px solid #e74c3c", paddingLeft: 10 }}>
             <label>Coordinator Secret Code</label>
@@ -138,26 +169,10 @@ const styles = {
     flexDirection: "column",
     gap: 14
   },
-  heading: {
-    textAlign: "center",
-    marginBottom: 4
-  },
-  subText: {
-    textAlign: "center",
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 10
-  },
-  field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4
-  },
-  error: {
-    color: "#e74c3c",
-    textAlign: "center",
-    fontSize: 14
-  },
+  heading: { textAlign: "center", marginBottom: 4 },
+  subText: { textAlign: "center", fontSize: 14, color: "#666", marginBottom: 10 },
+  field: { display: "flex", flexDirection: "column", gap: 4 },
+  error: { color: "#e74c3c", textAlign: "center", fontSize: 14 },
   button: {
     marginTop: 10,
     padding: 12,
@@ -168,13 +183,6 @@ const styles = {
     fontSize: 16,
     cursor: "pointer"
   },
-  footerText: {
-    textAlign: "center",
-    fontSize: 14
-  },
-  link: {
-    color: "#3498db",
-    fontWeight: "bold",
-    cursor: "pointer"
-  }
+  footerText: { textAlign: "center", fontSize: 14 },
+  link: { color: "#3498db", fontWeight: "bold", cursor: "pointer" }
 };

@@ -1,171 +1,106 @@
-import { useEffect, useState, useMemo } from "react";
-import {
-  collection,
-  onSnapshot,
-  doc,
-  updateDoc
-} from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
-import DashboardMap from "./DashboardMap";
 
-export default function CoordinatorDashboard() {
-  const [incidents, setIncidents] = useState([]);
+export default function AdminDashboard() {
   const [volunteers, setVolunteers] = useState([]);
   const [resources, setResources] = useState([]);
-  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [centers, setCenters] = useState([]);
 
   /* ================= LOAD DATA ================= */
 
   useEffect(() => {
-    return onSnapshot(collection(db, "incidents"), snap => {
-      setIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-  }, []);
-
-  useEffect(() => {
+    // Load Volunteers
     return onSnapshot(collection(db, "users"), snap => {
       setVolunteers(
         snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
-          .filter(u => u.role === "volunteer" && u.approved)
+          .filter(u => u.role?.toLowerCase() === "volunteer")
       );
     });
   }, []);
 
   useEffect(() => {
+    // Load Resources
     return onSnapshot(collection(db, "resources"), snap => {
       setResources(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
   }, []);
 
-  /* ================= AVAILABLE ================= */
-
-  const freeVolunteers = useMemo(
-    () => volunteers.filter(v => !v.busy),
-    [volunteers]
-  );
-
-  const freeResources = useMemo(
-    () => resources.filter(r => !r.busy),
-    [resources]
-  );
-
-  /* ================= ASSIGN ================= */
-
-  const assignVolunteer = async v => {
-    await updateDoc(doc(db, "incidents", selectedIncident.id), {
-      assignedVolunteerId: v.id,
-      assignedVolunteerName: v.name,
-      status: "Assigned"
+  useEffect(() => {
+    // Load Centers
+    return onSnapshot(collection(db, "centers"), snap => {
+      setCenters(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
+  }, []);
 
-    await updateDoc(doc(db, "users", v.id), { busy: true });
-    setSelectedIncident(null);
+  /* ================= VOLUNTEER ACTIONS ================= */
+
+  const approveVolunteer = async (v) => {
+    await updateDoc(doc(db, "users", v.id), { approved: true });
   };
 
-  const assignResource = async r => {
-    await updateDoc(doc(db, "incidents", selectedIncident.id), {
-      assignedResourceIds: [
-        ...(selectedIncident.assignedResourceIds || []),
-        r.id
-      ],
-      assignedResourceNames: [
-        ...(selectedIncident.assignedResourceNames || []),
-        r.name
-      ]
-    });
-
-    await updateDoc(doc(db, "resources", r.id), { busy: true });
-    setSelectedIncident(null);
+  const rejectVolunteer = async (v) => {
+    await updateDoc(doc(db, "users", v.id), { approved: false, rejected: true });
   };
 
   /* ================= UI ================= */
 
   return (
     <div style={styles.container}>
+      {/* SIDEBAR */}
       <aside style={styles.sidebar}>
-        <h2>🛠 Admin Panel</h2>
+        <h2>🏥 Admin Panel</h2>
+        <h3>Centers</h3>
+        {centers.map(c => (
+          <p key={c.id}>{c.name}</p>
+        ))}
       </aside>
 
+      {/* MAIN */}
       <main style={styles.main}>
-        <h2>🚨 Incidents</h2>
+        <h2>👤 Volunteers</h2>
 
-        <div style={styles.mapWrapper}>
-          <DashboardMap
-            incidents={incidents}
-            onIncidentClick={setSelectedIncident}
-          />
-        </div>
+        {volunteers.length === 0 && <p>No volunteers registered yet</p>}
 
         <div style={styles.grid}>
-          {incidents.map(i => (
-            <div key={i.id} style={styles.card}>
-              <h4>{i.title}</h4>
-              <p><b>Status:</b> {i.status}</p>
-              <p><b>Severity:</b> {i.severity}</p>
-
+          {volunteers.map(v => (
+            <div key={v.id} style={styles.card}>
+              <p><b>Name:</b> {v.name}</p>
+              <p><b>Email:</b> {v.email}</p>
+              <p><b>Contact:</b> {v.contact}</p>
+              <p><b>Center:</b> {centers.find(c => c.id === v.centerId)?.name || "Unknown"}</p>
               <p>
-                <b>Volunteer:</b>{" "}
-                {i.assignedVolunteerName || "Not Assigned"}
+                <b>Status:</b>{" "}
+                {v.approved ? "Approved ✅" : v.rejected ? "Rejected ❌" : "Pending ⏳"}
               </p>
 
-              <p>
-                <b>Resources:</b>{" "}
-                {i.assignedResourceNames?.length
-                  ? i.assignedResourceNames.join(", ")
-                  : "None"}
-              </p>
+              {!v.approved && !v.rejected && (
+                <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                  <button style={styles.approveBtn} onClick={() => approveVolunteer(v)}>
+                    Approve
+                  </button>
+                  <button style={styles.rejectBtn} onClick={() => rejectVolunteer(v)}>
+                    Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
 
-              <button
-                style={styles.assignBtn}
-                onClick={() => setSelectedIncident(i)}
-              >
-                Assign
-              </button>
+        <h2 style={{ marginTop: 40 }}>🚑 Resources</h2>
+        <div style={styles.grid}>
+          {resources.map(r => (
+            <div key={r.id} style={styles.card}>
+              <p><b>Name:</b> {r.name}</p>
+              <p><b>Type:</b> {r.type}</p>
+              <p><b>Status:</b> {r.status}</p>
+              <p><b>Center:</b> {centers.find(c => c.id === r.centerId)?.name || "Unknown"}</p>
             </div>
           ))}
         </div>
       </main>
-
-      {/* ================= MODAL ================= */}
-      {selectedIncident && (
-        <div style={styles.overlay}>
-          <div style={styles.modal}>
-            <h3>{selectedIncident.title}</h3>
-
-            <h4>👤 Volunteers</h4>
-            {freeVolunteers.length === 0 && <p>No available volunteers</p>}
-            {freeVolunteers.map(v => (
-              <button
-                key={v.id}
-                style={styles.assignBtn}
-                onClick={() => assignVolunteer(v)}
-              >
-                {v.name}
-              </button>
-            ))}
-
-            <h4>🚑 Resources</h4>
-            {freeResources.length === 0 && <p>No available resources</p>}
-            {freeResources.map(r => (
-              <button
-                key={r.id}
-                style={styles.assignBtn}
-                onClick={() => assignResource(r)}
-              >
-                {r.name} ({r.centerName})
-              </button>
-            ))}
-
-            <button
-              style={styles.closeBtn}
-              onClick={() => setSelectedIncident(null)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -184,13 +119,6 @@ const styles = {
 
   main: { flex: 1, padding: 25, background: "#f4f6f8" },
 
-  mapWrapper: {
-    height: 350,
-    marginBottom: 30,
-    borderRadius: 10,
-    overflow: "hidden"
-  },
-
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))",
@@ -204,42 +132,21 @@ const styles = {
     boxShadow: "0 2px 8px rgba(0,0,0,0.12)"
   },
 
-  assignBtn: {
-    background: "#3498db",
+  approveBtn: {
+    background: "#2ecc71",
     color: "#fff",
     border: "none",
-    padding: "8px 14px",
+    padding: "6px 12px",
     borderRadius: 6,
-    cursor: "pointer",
-    marginTop: 8,
-    display: "block"
+    cursor: "pointer"
   },
 
-  closeBtn: {
+  rejectBtn: {
     background: "#e74c3c",
     color: "#fff",
     border: "none",
-    padding: "8px 14px",
+    padding: "6px 12px",
     borderRadius: 6,
-    marginTop: 15
-  },
-
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.6)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 9999
-  },
-
-  modal: {
-    background: "#fff",
-    padding: 22,
-    borderRadius: 12,
-    width: 420,
-    maxHeight: "80vh",
-    overflowY: "auto"
+    cursor: "pointer"
   }
 };
