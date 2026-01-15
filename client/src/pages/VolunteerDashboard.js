@@ -71,12 +71,23 @@ export default function VolunteerDashboard() {
     await updateDoc(doc(db, "resources", id), { status });
   };
 
-  /* ✅ ACKNOWLEDGE INCIDENT COMPLETION */
+  /* ✅ MARK INCIDENT COMPLETED */
   const markCompleted = async (incidentId) => {
     await updateDoc(doc(db, "incidents", incidentId), {
       status: "Completed",
       completedAt: new Date()
     });
+
+    // Optionally, free all assigned resources
+    const inc = incidents.find(i => i.id === incidentId);
+    if (inc?.assignedResourceIds?.length) {
+      inc.assignedResourceIds.forEach(async rId => {
+        await updateDoc(doc(db, "resources", rId), { busy: false });
+      });
+    }
+
+    // Free volunteer
+    await updateDoc(doc(db, "users", user.uid), { busy: false });
   };
 
   if (loading) return <p>Loading...</p>;
@@ -124,7 +135,7 @@ export default function VolunteerDashboard() {
               <h4>🚑 Assigned Resources</h4>
 
               {resources
-                .filter(r => r.assignedIncidentId === inc.id)
+                .filter(r => inc.assignedResourceIds?.includes(r.id))
                 .map(r => (
                   <div key={r.id} style={styles.resourceCard}>
                     <p><b>{r.type}</b></p>
@@ -144,7 +155,7 @@ export default function VolunteerDashboard() {
                   </div>
                 ))}
 
-              {resources.filter(r => r.assignedIncidentId === inc.id).length === 0 && (
+              {(!inc.assignedResourceIds || inc.assignedResourceIds.length === 0) && (
                 <p style={{ fontSize: 13, color: "#777" }}>
                   No resources assigned
                 </p>
